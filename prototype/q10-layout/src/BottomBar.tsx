@@ -5,7 +5,7 @@ import type { LayoutKey } from './App'
 export const VARIANT_META: Record<LayoutKey, { name: string; hint: string; tech: string }> = {
   a: {
     name: 'A · 可拖拽网格',
-    hint: '拖卡片标题栏换位;拉右下角 / 右边缘 / 下边缘调宽高,其余卡片自动让位(类 Grafana)',
+    hint: '顶栏切换默认预设(四宫格 / 自上而下);拖卡片标题栏换位,拉右下角/右/下边缘调宽高(类 Grafana)',
     tech: 'react-grid-layout',
   },
   b: {

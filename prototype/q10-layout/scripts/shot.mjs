@@ -24,16 +24,17 @@ const shoot = async (name, path, extra) => {
   console.log(`✓ ${name}`)
 }
 
-await shoot('variant-a', '/?layout=a')
+await shoot('variant-a-quad', '/?layout=a&preset=quad')
 await shoot('variant-b', '/?layout=b')
 await shoot('variant-c', '/?layout=c')
 
-// A:把第一张卡(QQQ)的标题栏向下拖约两行,验证拖拽换位可用
-await shoot('variant-a-dragged', '/?layout=a', async () => {
-  const h = await page.locator('.card-drag-handle').first().boundingBox()
+// A · 自上而下预设:确认 B 式单列观感 + 拖拽换位依然可用(把 Ratio ROC 拖到 QQQ 上面)
+await shoot('variant-a-flow', '/?layout=a&preset=flow')
+await shoot('variant-a-flow-dragged', '/?layout=a&preset=flow', async () => {
+  const h = await page.locator('.card-drag-handle').nth(1).boundingBox()
   await page.mouse.move(h.x + 90, h.y + 14)
   await page.mouse.down()
-  await page.mouse.move(h.x + 90, h.y + 14 + 420, { steps: 14 })
+  await page.mouse.move(h.x + 90, h.y + 14 - 440, { steps: 14 })
   await page.mouse.up()
   await page.waitForTimeout(600)
 })

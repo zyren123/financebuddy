@@ -58,6 +58,23 @@ button:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
   white-space: nowrap;
 }
 .mock-note { margin-left: auto; font-size: 11px; color: var(--text-dim); white-space: nowrap; }
+.preset-picker { display: flex; align-items: center; gap: 6px; margin-left: 6px; }
+.preset-label { font-size: 11px; color: var(--text-dim); }
+.preset-picker button {
+  border: 1px solid var(--border-2);
+  background: transparent;
+  color: var(--text-dim);
+  font-size: 11px;
+  padding: 3px 10px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.preset-picker button:hover { color: var(--text); }
+.preset-picker button.on {
+  color: var(--text);
+  background: #2a2e39;
+  border-color: var(--accent);
+}
 .app-main { flex: 1; min-height: 0; overflow: auto; }
 
 /* ── Card 通用外壳 ── */
