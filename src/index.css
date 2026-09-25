@@ -29,3 +29,9 @@ body,
   border-right: 2px solid var(--color-accent);
   border-bottom: 2px solid var(--color-accent);
 }
+
+/* 手机端:双指缩放/拖拽手势交给图表(LWC 的 touchstart 是 passive 的,
+   不设 none 会被浏览器劫持成页面缩放,图表就收不到手势) */
+.chart-surface canvas {
+  touch-action: none;
+}

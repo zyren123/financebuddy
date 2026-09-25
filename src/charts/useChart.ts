@@ -29,6 +29,10 @@ export function useChart() {
         // 顶部留 8% 余量,避免最高一档刻度(如 RSI 的 100.0)被卡片上缘裁切
         scaleMargins: { top: 0.08, bottom: 0.08 },
       },
+      // 显式声明手势(默认即如此,写明防漂移):
+      // 滚轮/双指捏合缩放、按住拖拽平移、按住坐标轴拖拽缩放、双击轴复位
+      handleScale: { mouseWheel: true, pinch: true, axisPressedMouseMove: true, axisDoubleClickReset: true },
+      handleScroll: { mouseWheel: true, pressedMouseMove: true, horzTouchDrag: true, vertTouchDrag: true },
       timeScale: { borderColor: CHART_COLORS.edge, timeVisible: false, secondsVisible: false },
       crosshair: { mode: CrosshairMode.Normal },
     })

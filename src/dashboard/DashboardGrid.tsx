@@ -71,25 +71,25 @@ export function DashboardGrid({
                       ))}
                     </div>
                   )}
+                  {/* ⚙(改 Ticker/参数)与编辑模式无关——调整卡片内容是浏览时操作,
+                      只有拖拽布局/删除卡片才需要编辑模式 */}
+                  <button
+                    type="button"
+                    className="px-1 text-ink-muted hover:text-ink"
+                    title="卡片设置(Ticker / 参数)"
+                    onClick={() => setSettingsOpenId(settingsOpen ? null : card.id)}
+                  >
+                    {settingsOpen ? '✓' : '⚙'}
+                  </button>
                   {editMode && (
-                    <>
-                      <button
-                        type="button"
-                        className="px-1 text-ink-muted hover:text-ink"
-                        title="卡片设置"
-                        onClick={() => setSettingsOpenId(settingsOpen ? null : card.id)}
-                      >
-                        {settingsOpen ? '✓' : '⚙'}
-                      </button>
-                      <button
-                        type="button"
-                        className="px-1 text-ink-muted hover:text-down"
-                        title="删除卡片"
-                        onClick={() => onCardRemove(card.id)}
-                      >
-                        ✕
-                      </button>
-                    </>
+                    <button
+                      type="button"
+                      className="px-1 text-ink-muted hover:text-down"
+                      title="删除卡片"
+                      onClick={() => onCardRemove(card.id)}
+                    >
+                      ✕
+                    </button>
                   )}
                 </div>
               </header>

@@ -97,7 +97,7 @@ export function CandlestickChart({
 
   return (
     <div className="relative h-full w-full">
-      <div ref={containerRef} className="h-full w-full" />
+      <div ref={containerRef} className="chart-surface h-full w-full" />
       {shown && (
         <div className="pointer-events-none absolute left-2 top-1.5 z-10 flex flex-wrap items-center gap-x-3 gap-y-0.5 rounded bg-surface/70 px-1 py-0.5 text-[11px] tabular-nums backdrop-blur-[2px]">
           <span className="font-semibold text-ink">{symbol}</span>
