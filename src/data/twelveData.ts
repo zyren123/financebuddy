@@ -39,11 +39,13 @@ function parseBar(b: RawBar): Bar {
 }
 
 /**
- * 经薄代理拉取 time_series。注意:API 返回**新→旧**排序,此处翻转为旧→新。
+ * 经薄代理拉取 time_series(GET /api/td?endpoint=time_series&…,Vercel 与
+ * EdgeOne 同一路由)。注意:API 返回**新→旧**排序,此处翻转为旧→新。
  * 每次调用消耗 1 credit(先过限速队列)。
  */
 export async function fetchBars(opts: FetchBarsOpts): Promise<Bar[]> {
   const params = new URLSearchParams({
+    endpoint: 'time_series',
     symbol: opts.symbol,
     interval: opts.interval,
     outputsize: String(opts.outputsize ?? 5000),
@@ -52,7 +54,7 @@ export async function fetchBars(opts: FetchBarsOpts): Promise<Bar[]> {
   if (opts.endDate) params.set('end_date', opts.endDate)
 
   await acquireCredit()
-  const res = await fetch(`/api/td/time_series?${params.toString()}`)
+  const res = await fetch(`/api/td?${params.toString()}`)
   if (!res.ok) {
     throw new Error(`代理请求失败:HTTP ${res.status}`)
   }

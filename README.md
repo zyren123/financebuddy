@@ -36,9 +36,12 @@ key 只用于本地 dev proxy 转发,不进前端代码。
 
 ```
 浏览器 SPA(React 19 + Vite + Tailwind + TanStack Query)
-  └─ /api/td/time_series  ← 开发期:Vite dev proxy 注入 key
-                            ← 生产期:api/td/[...route].ts(Vercel serverless,见 ADR-0001)
-                                └─ api.twelvedata.com(6h 服务端共享缓存)
+  └─ GET /api/td?endpoint=time_series&…
+       ├─ 开发期:Vite 中间件直接运行共享核心(白名单/缓存全同构)
+       ├─ Vercel:api/td.ts        ─┐ 各 ~20 行适配器
+       └─ EdgeOne:functions/api/td/index.ts ─┘
+            └─ server/tdProxy.ts(共享核心:白名单、6h 共享缓存、key 注入)
+                └─ api.twelvedata.com
 数据层:IndexedDB 全量缓存(1 credit ≈ 5000 根日 K)+ 每日增量 + 8 credits/min 限速队列
 指标层:纯函数(ROC/RSI/SMA/EMA + 比值对齐),测试先行
 ```
@@ -47,15 +50,19 @@ key 只用于本地 dev proxy 转发,不进前端代码。
 
 ## 部署
 
-### Vercel(已支持)
+两个平台共用同一路由(`/api/td`)与同一核心(`server/tdProxy.ts`),都只需配一个环境变量 `TWELVEDATA_API_KEY`。
+
+### Vercel
 
 1. 导入仓库,框架自动识别为 Vite;
 2. 环境变量设置 `TWELVEDATA_API_KEY`;
-3. 部署。`api/td/[...route].ts` 自动成为 `/api/td/*` 的 serverless 代理。
+3. 部署。`api/td.ts` 自动成为 `/api/td` 的 serverless 代理。
 
-### 腾讯 EdgeOne Pages(待办)
+### 腾讯 EdgeOne Pages
 
-edge function 版代理尚未编写(等价于 `api/td/[...route].ts` 的 ~30 行 Web-fetch 处理器),确定使用该平台时补上。
+1. 控制台创建项目并接入 Git 仓库(框架识别为 Vite);
+2. 环境变量设置 `TWELVEDATA_API_KEY`;
+3. 部署。`functions/api/td/index.ts` 自动成为 `/api/td` 的边缘函数(签名 `onRequest({ request, env })`,与官方模板一致)。
 
 ## 更新全网默认布局(Published Layout)
 
