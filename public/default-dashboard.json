@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "cards": [
+    {
+      "id": "qqq-candle",
+      "kind": "candle",
+      "symbol": "QQQ",
+      "range": "3y"
+    },
+    {
+      "id": "ratio-roc",
+      "kind": "ratioRoc",
+      "rocPeriod": 35,
+      "pairs": [
+        { "numerator": "VTV", "denominator": "QQQ" },
+        { "numerator": "SCHD", "denominator": "QQQ" },
+        { "numerator": "CGDV", "denominator": "QQQ" }
+      ],
+      "range": "3y"
+    },
+    {
+      "id": "qqq-rsi",
+      "kind": "indicator",
+      "symbol": "QQQ",
+      "indicator": "rsi",
+      "period": 14,
+      "range": "3y"
+    }
+  ],
+  "layout": [
+    { "i": "qqq-candle", "x": 0, "y": 0, "w": 6, "h": 10, "minW": 3, "minH": 4 },
+    { "i": "ratio-roc", "x": 6, "y": 0, "w": 6, "h": 10, "minW": 3, "minH": 4 },
+    { "i": "qqq-rsi", "x": 0, "y": 1, "w": 6, "h": 6, "minW": 3, "minH": 4 }
+  ]
+}

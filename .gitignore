@@ -1,0 +1,15 @@
+# 秘钥(严禁入库)
+.env
+.env.*
+!.env.example
+
+# 依赖 / 构建产物
+node_modules/
+dist/
+
+# 系统 / 编辑器
+.DS_Store
+*.local
+
+# Claude Code 本地状态(worktree、会话设置)
+.claude/

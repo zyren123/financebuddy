@@ -1,0 +1,31 @@
+@import 'tailwindcss';
+
+/* FinanceBuddy 深色主题(TradingView 式观感) */
+@theme {
+  --color-surface: #1e222d;
+  --color-surface-raised: #262b38;
+  --color-edge: #2a2e39;
+  --color-ink: #d1d4dc;
+  --color-ink-muted: #787b86;
+  --color-accent: #2962ff;
+  --color-up: #26a69a;
+  --color-down: #ef5350;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  background-color: var(--color-surface);
+  color: var(--color-ink);
+  font-family:
+    -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB',
+    'Microsoft YaHei', sans-serif;
+}
+
+/* 编辑模式下的缩放手柄用主题色,深色面板上默认灰色几乎不可见 */
+.react-grid-item > .react-resizable-handle::before {
+  border-right: 2px solid var(--color-accent);
+  border-bottom: 2px solid var(--color-accent);
+}
