@@ -1,95 +1,109 @@
-import type { Layout } from 'react-grid-layout'
-import type { CardConfig, DashboardState, IndicatorKind } from './types'
+import { validateDashboardState } from './schema'
+import type { DashboardState } from './types'
 
-// Local Layout:localStorage;Published Layout:随产物分发的 default-dashboard.json(见 ADR/CONTEXT 术语)
+/**
+ * 布局的出入通道(ADR-0003):
+ *   - 读取链:GET /api/layout(服务端 KV 的 Published Layout)→ 404/不可达回落
+ *     Factory Layout(随产物分发的 default-dashboard.json)→ 皆败返回 null。
+ *   - Admin 的验证 / 发布 / 恢复上一版也经此模块与 /api/layout 通信。
+ *   - Draft(Admin 的会话级草稿)存 sessionStorage。
+ */
 
-const STORAGE_KEY = 'financebuddy:dashboard:v1'
+const DRAFT_KEY = 'financebuddy:draft:v1'
 
-const RANGES = new Set(['6m', '1y', '3y', '5y', 'max'])
-const INDICATORS = new Set<IndicatorKind>(['rsi', 'roc', 'sma', 'ema'])
+const jsonHeaders = { 'content-type': 'application/json' }
 
-function isRecord(v: unknown): v is Record<string, unknown> {
-  return typeof v === 'object' && v !== null
+async function readError(res: Response): Promise<string> {
+  try {
+    const payload = (await res.json()) as { error?: unknown }
+    if (payload && typeof payload.error === 'string') return payload.error
+  } catch {
+    // 非 JSON 错误体
+  }
+  return `HTTP ${res.status}`
 }
 
-function parseCard(v: unknown): CardConfig | null {
-  if (!isRecord(v) || typeof v.id !== 'string' || typeof v.range !== 'string' || !RANGES.has(v.range)) {
-    return null
-  }
-  const range = v.range as CardConfig['range']
-  if (v.kind === 'candle' && typeof v.symbol === 'string' && v.symbol) {
-    return { id: v.id, range, kind: 'candle', symbol: v.symbol.toUpperCase() }
-  }
-  if (v.kind === 'ratioRoc' && typeof v.rocPeriod === 'number' && Array.isArray(v.pairs)) {
-    const pairs = v.pairs
-      .filter(
-        (p): p is { numerator: string; denominator: string } =>
-          isRecord(p) && typeof p.numerator === 'string' && typeof p.denominator === 'string' && p.numerator !== '' && p.denominator !== '',
-      )
-      .map((p) => ({ numerator: p.numerator.toUpperCase(), denominator: p.denominator.toUpperCase() }))
-    if (pairs.length === 0) return null
-    return { id: v.id, range, kind: 'ratioRoc', rocPeriod: Math.max(1, Math.round(v.rocPeriod)), pairs }
-  }
-  if (
-    v.kind === 'indicator' &&
-    typeof v.symbol === 'string' &&
-    v.symbol &&
-    typeof v.indicator === 'string' &&
-    INDICATORS.has(v.indicator as IndicatorKind) &&
-    typeof v.period === 'number'
-  ) {
-    return {
-      id: v.id,
-      range,
-      kind: 'indicator',
-      symbol: v.symbol.toUpperCase(),
-      indicator: v.indicator as IndicatorKind,
-      period: Math.max(1, Math.round(v.period)),
+/** 读取链:Published(KV)→ Factory(捆绑 JSON);两者皆败返回 null(调用方显示失败态) */
+export async function loadPublishedLayout(): Promise<DashboardState | null> {
+  try {
+    const res = await fetch('/api/layout')
+    if (res.ok) {
+      const state = validateDashboardState(await res.json())
+      if (state) return state
     }
+  } catch {
+    // 端点不可达:回落出厂布局
+  }
+  try {
+    const res = await fetch('/default-dashboard.json')
+    if (res.ok) return validateDashboardState(await res.json())
+  } catch {
+    // 出厂布局也读不到(极罕见)
   }
   return null
 }
 
-function parseLayout(v: unknown): Layout | null {
-  if (!Array.isArray(v)) return null
-  const items = v.filter(
-    (item): item is { i: string; x: number; y: number; w: number; h: number } =>
-      isRecord(item) &&
-      typeof item.i === 'string' &&
-      [item.x, item.y, item.w, item.h].every((n) => typeof n === 'number'),
-  )
-  return items.map((item) => ({ ...item, minW: 3, minH: 4 }))
-}
-
-/** 严格校验并规整外来 JSON(localStorage / 导入文件 / 发布布局),坏数据返回 null */
-export function validateDashboardState(v: unknown): DashboardState | null {
-  if (!isRecord(v) || v.version !== 1 || !Array.isArray(v.cards)) return null
-  const cards = v.cards.map(parseCard).filter((c): c is CardConfig => c !== null)
-  if (cards.length === 0) return null
-  const layout = parseLayout(v.layout) ?? []
-  return { version: 1, cards, layout }
-}
-
-export function loadLocalDashboard(): DashboardState | null {
+/** 向服务端验证 Admin 口令(错口令在此立刻报错,而不是等到发布) */
+export async function verifyAdminToken(token: string): Promise<boolean> {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY)
+    const res = await fetch('/api/layout', {
+      method: 'POST',
+      headers: { ...jsonHeaders, 'x-admin-token': token },
+      body: JSON.stringify({ action: 'verify' }),
+    })
+    return res.ok
+  } catch {
+    return false
+  }
+}
+
+/** 发布:Draft 写入服务端成为新的 Published Layout(服务端另行校验并保留上一版) */
+export async function publishLayout(state: DashboardState, token: string): Promise<void> {
+  const res = await fetch('/api/layout', {
+    method: 'PUT',
+    headers: { ...jsonHeaders, 'x-admin-token': token },
+    body: JSON.stringify(state),
+  })
+  if (!res.ok) throw new Error(`发布失败:${await readError(res)}`)
+}
+
+/** 恢复上一版:服务端把 prev 复制回 Published,并在响应里直接带回恢复后的布局(Admin 专属) */
+export async function restorePreviousLayout(token: string): Promise<DashboardState | null> {
+  const res = await fetch('/api/layout', {
+    method: 'POST',
+    headers: { ...jsonHeaders, 'x-admin-token': token },
+    body: JSON.stringify({ action: 'restore' }),
+  })
+  if (!res.ok) throw new Error(`恢复上一版失败:${await readError(res)}`)
+  const payload = (await res.json()) as { layout?: unknown }
+  return validateDashboardState(payload.layout)
+}
+
+// ---- Draft(会话级)----
+
+export function saveDraft(state: DashboardState): void {
+  try {
+    sessionStorage.setItem(DRAFT_KEY, JSON.stringify(state))
+  } catch {
+    // 存不了就算了(隐私模式等),刷新后草稿丢失
+  }
+}
+
+export function loadDraft(): DashboardState | null {
+  try {
+    const raw = sessionStorage.getItem(DRAFT_KEY)
     return raw ? validateDashboardState(JSON.parse(raw)) : null
   } catch {
     return null
   }
 }
 
-export function saveLocalDashboard(state: DashboardState): void {
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(state))
-}
-
-/** Published Layout:随应用分发的默认布局(仓库 public/default-dashboard.json) */
-export async function loadPublishedDashboard(): Promise<DashboardState> {
-  const res = await fetch('/default-dashboard.json')
-  if (!res.ok) throw new Error(`读取默认布局失败:HTTP ${res.status}`)
-  const state = validateDashboardState(await res.json())
-  if (!state) throw new Error('默认布局文件格式无效')
-  return state
+export function clearDraft(): void {
+  try {
+    sessionStorage.removeItem(DRAFT_KEY)
+  } catch {
+    // 同上
+  }
 }
 
 export function exportDashboardFile(state: DashboardState): void {

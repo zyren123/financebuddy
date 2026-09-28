@@ -12,7 +12,7 @@ const inputCls =
   'w-24 rounded border border-edge bg-surface px-1.5 py-0.5 text-[11px] text-ink outline-none focus:border-accent'
 const labelCls = 'text-ink-muted'
 
-/** 编辑模式下的卡片参数表单(即时生效,写 Local Layout) */
+/** 编辑模式下的卡片参数表单(改动写 Draft,发布才对访客生效) */
 export function CardSettings({ card, onChange }: Props) {
   return (
     <div className="flex h-full flex-col gap-2 overflow-auto p-2 text-[11px]">
