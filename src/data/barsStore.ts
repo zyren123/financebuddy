@@ -39,10 +39,11 @@ export async function ensureBars(symbol: string, interval: Interval): Promise<Ba
     bars = await fetchBars({ symbol, interval, outputsize: FULL_SIZE })
   } else {
     const lastDate = cached.bars[cached.bars.length - 1]!.datetime
+    // 不能传小 outputsize:Twelve Data 会在日期区间内再截断、只留最新 N 根,
+    // 长缺口会在中段静默丢 K 线。沿用 fetchBars 默认 5000,区间内全取
     const fresh = await fetchBars({
       symbol,
       interval,
-      outputsize: 30, // 覆盖节假日缺口的缓冲
       startDate: addDays(lastDate, 1),
       endDate: todayISO(),
     })
