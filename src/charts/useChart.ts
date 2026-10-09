@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { ColorType, CrosshairMode, createChart } from 'lightweight-charts'
 import type { IChartApi } from 'lightweight-charts'
-import { CHART_COLORS } from './theme'
+import { CHART_COLORS, MONO_FONT } from './theme'
 
 /** 创建带暗色主题的 lightweight-charts 实例,自动跟随容器尺寸,卸载时销毁 */
 export function useChart() {
@@ -15,9 +15,10 @@ export function useChart() {
     const chart = createChart(container, {
       autoSize: true,
       layout: {
-        background: { type: ColorType.Solid, color: CHART_COLORS.surface },
+        background: { type: ColorType.Solid, color: 'transparent' },
         textColor: CHART_COLORS.muted,
-        fontSize: 11,
+        fontSize: 10,
+        fontFamily: MONO_FONT,
         attributionLogo: false,
       },
       grid: {
@@ -25,16 +26,20 @@ export function useChart() {
         horzLines: { color: CHART_COLORS.grid },
       },
       rightPriceScale: {
-        borderColor: CHART_COLORS.edge,
+        borderVisible: false,
         // 顶部留 8% 余量,避免最高一档刻度(如 RSI 的 100.0)被卡片上缘裁切
         scaleMargins: { top: 0.08, bottom: 0.08 },
       },
-      // 显式声明手势(默认即如此,写明防漂移):
-      // 滚轮/双指捏合缩放、按住拖拽平移、按住坐标轴拖拽缩放、双击轴复位
+      // 显式声明手势:滚轮/双指捏合缩放、按住拖拽平移、按住坐标轴拖拽缩放、双击轴复位。
+      // 竖向触摸拖拽关闭:封面与仪表盘同页,竖滑必须留给页面滚动(配合 CSS touch-action: pan-y)
       handleScale: { mouseWheel: true, pinch: true, axisPressedMouseMove: true, axisDoubleClickReset: true },
-      handleScroll: { mouseWheel: true, pressedMouseMove: true, horzTouchDrag: true, vertTouchDrag: true },
+      handleScroll: { mouseWheel: true, pressedMouseMove: true, horzTouchDrag: true, vertTouchDrag: false },
       timeScale: { borderColor: CHART_COLORS.edge, timeVisible: false, secondsVisible: false },
-      crosshair: { mode: CrosshairMode.Normal },
+      crosshair: {
+        mode: CrosshairMode.Normal,
+        vertLine: { color: CHART_COLORS.copperDim, labelBackgroundColor: CHART_COLORS.copperDim },
+        horzLine: { color: CHART_COLORS.copperDim, labelBackgroundColor: CHART_COLORS.copperDim },
+      },
     })
     chartRef.current = chart
     return () => {

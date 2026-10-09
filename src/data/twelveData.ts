@@ -56,7 +56,12 @@ export async function fetchBars(opts: FetchBarsOpts): Promise<Bar[]> {
   await acquireCredit()
   const res = await fetch(`/api/td?${params.toString()}`)
   if (!res.ok) {
-    throw new Error(`代理请求失败:HTTP ${res.status}`)
+    // 上游错误体里有原因(如"本日额度用完"与"本分钟限速"同为 429),一并带上
+    const detail = await res
+      .json()
+      .then((j: TimeSeriesResponse) => j.message ?? '')
+      .catch(() => '')
+    throw new Error(`代理请求失败:HTTP ${res.status}${detail ? ` ${detail}` : ''}`)
   }
   const json = (await res.json()) as TimeSeriesResponse
   if (json.status === 'error' || json.code !== undefined) {

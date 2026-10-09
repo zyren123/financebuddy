@@ -47,7 +47,7 @@ export function cardTitle(card: CardConfig): string {
     case 'candle':
       return `${card.symbol} 日K`
     case 'ratioRoc':
-      return `Ratio ROC(${card.rocPeriod})`
+      return `Ratio ROC-${card.rocPeriod}`
     case 'indicator':
       return `${card.symbol} ${card.indicator.toUpperCase()}(${card.period})`
   }

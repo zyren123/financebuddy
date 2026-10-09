@@ -5,7 +5,7 @@ import type { Bar } from '../data/types'
 import { candleData, dateToTs, tsToDate, volumeData } from './convert'
 import type { RangeKey } from './convert'
 import { applyRange } from './range'
-import { CHART_COLORS } from './theme'
+import { CHART_COLORS, MONO_FONT } from './theme'
 import { useChart } from './useChart'
 
 const VOLUME_PANE_HEIGHT = 88
@@ -60,7 +60,7 @@ export function CandlestickChart({
     createTextWatermark(chart.panes()[0]!, {
       horzAlign: 'center',
       vertAlign: 'center',
-      lines: [{ text: symbol, color: 'rgba(209, 212, 220, 0.07)', fontSize: 46 }],
+      lines: [{ text: symbol, color: 'rgba(185, 138, 94, 0.08)', fontSize: 56, fontFamily: MONO_FONT }],
     })
 
     candleRef.current = candle
@@ -96,31 +96,30 @@ export function CandlestickChart({
   const rising = shown ? shown.bar.close >= shown.bar.open : true
 
   return (
-    <div className="relative h-full w-full">
-      <div ref={containerRef} className="chart-surface h-full w-full" />
+    <div className="flex h-full w-full flex-col">
       {shown && (
-        <div className="pointer-events-none absolute left-2 top-1.5 z-10 flex flex-wrap items-center gap-x-3 gap-y-0.5 rounded bg-surface/70 px-1 py-0.5 text-[11px] tabular-nums backdrop-blur-[2px]">
-          <span className="font-semibold text-ink">{symbol}</span>
-          <span className="text-ink-muted">{shown.date}</span>
-          <span className="text-ink-muted">
+        <div className="num flex shrink-0 flex-wrap items-baseline gap-x-4 gap-y-1 px-1 pb-2 text-[11px] text-ink-muted">
+          <span>
             O <span className="text-ink">{fmt2(shown.bar.open)}</span>
           </span>
-          <span className="text-ink-muted">
+          <span>
             H <span className="text-ink">{fmt2(shown.bar.high)}</span>
           </span>
-          <span className="text-ink-muted">
+          <span>
             L <span className="text-ink">{fmt2(shown.bar.low)}</span>
           </span>
-          <span className="text-ink-muted">
+          <span>
             C <span className={rising ? 'text-up' : 'text-down'}>{fmt2(shown.bar.close)}</span>
           </span>
           {shown.bar.volume != null && (
-            <span className="text-ink-muted">
-              量 <span className="text-ink">{compact.format(shown.bar.volume)}</span>
+            <span>
+              VOL <span className="text-ink">{compact.format(shown.bar.volume)}</span>
             </span>
           )}
+          <span className="ml-auto text-ink-faint">{shown.date}</span>
         </div>
       )}
+      <div ref={containerRef} className="chart-surface min-h-0 w-full flex-1" />
     </div>
   )
 }

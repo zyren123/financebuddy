@@ -91,7 +91,7 @@ try {
   await sleep(500)
   const activeAfterClick = await page.evaluate(() => {
     const b = [...document.querySelectorAll('button')].find((x) => x.textContent.trim() === '1年')
-    return b?.className.includes('bg-accent') ?? false
+    return b?.getAttribute('aria-pressed') === 'true'
   })
   check('Browse State:点「1年」即高亮', activeAfterClick)
   await page.reload({ waitUntil: 'networkidle2' })
@@ -99,7 +99,7 @@ try {
   await page.waitForSelector('canvas', { timeout: 90_000 })
   const activeAfterReload = await page.evaluate(() => {
     const b = [...document.querySelectorAll('button')].find((x) => x.textContent.trim() === '3年')
-    return b?.className.includes('bg-accent') ?? false
+    return b?.getAttribute('aria-pressed') === 'true'
   })
   check('Browse State 不落盘:刷新回默认 3年', activeAfterReload)
 
@@ -163,7 +163,7 @@ try {
   )
   check('flow 预设:卡片等宽铺满', widths.length === 3 && widths.every((w) => w > 700), widths.join(','))
 
-  const addBtn = await findBtn(page, '+ 指标卡')
+  const addBtn = await findBtn(page, '指标卡')
   await addBtn.asElement().click()
   await sleep(400)
   const gridItems4 = await page.$$eval('.react-grid-item', (els) => els.length)

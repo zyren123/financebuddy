@@ -117,4 +117,18 @@ describe('ensureBars', () => {
     const bars = await ensureBars('QQQ', '1day')
     expect(bars.map((b) => b.datetime)).toEqual(history)
   })
+
+  it('增量失败(如额度用完)时退回旧缓存,且不刷新同步时间', async () => {
+    cacheUpTo('2026-10-02', Date.now() - 7 * HOUR)
+    vi.mocked(fetchBars).mockRejectedValue(new Error('代理请求失败:HTTP 429 run out of API credits for the day'))
+    const bars = await ensureBars('QQQ', '1day')
+    expect(bars.at(-1)!.datetime).toBe('2026-10-02')
+    expect(set).not.toHaveBeenCalled()
+  })
+
+  it('无缓存时的全量失败照常抛出', async () => {
+    vi.mocked(get).mockResolvedValue(undefined)
+    vi.mocked(fetchBars).mockRejectedValue(new Error('代理请求失败:HTTP 429'))
+    await expect(ensureBars('QQQ', '1day')).rejects.toThrow('HTTP 429')
+  })
 })
