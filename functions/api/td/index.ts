@@ -1,4 +1,4 @@
-import { proxyTwelveData } from '../../../server/tdProxy'
+import { proxyTwelveData, upstreamFromEnv } from '../../../server/tdProxy'
 
 /**
  * 腾讯 EdgeOne Pages 边缘函数适配(核心逻辑在 server/tdProxy.ts)。
@@ -15,10 +15,8 @@ export async function onRequest(context: EdgeOneContext): Promise<Response> {
   if (request.method !== 'GET') {
     return Response.json({ error: 'method not allowed' }, { status: 405 })
   }
-  const apiKey =
-    env?.TWELVEDATA_API_KEY ??
-    (typeof process !== 'undefined' ? process.env?.TWELVEDATA_API_KEY : undefined)
-  const result = await proxyTwelveData(new URL(request.url), apiKey)
+  const processEnv = typeof process !== 'undefined' ? process.env : undefined
+  const result = await proxyTwelveData(new URL(request.url), upstreamFromEnv({ ...processEnv, ...env }))
   return new Response(result.body, {
     status: result.status,
     headers: { 'content-type': 'application/json' },
