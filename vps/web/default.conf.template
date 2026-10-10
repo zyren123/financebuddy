@@ -2,13 +2,17 @@ server {
     listen 80;
     root /usr/share/nginx/html;
 
+    # 用变量 + Docker 内置 DNS,td-cache 重建换 IP 后 nginx 也能跟上
+    resolver 127.0.0.11 valid=10s;
+    set $td_cache http://td-cache:8787;
+
     location = /api/td {
-        proxy_pass http://td-cache:8787;
+        proxy_pass $td_cache;
         proxy_set_header x-td-cache-token "${TD_CACHE_TOKEN}";
     }
 
     location = /api/layout {
-        proxy_pass http://td-cache:8787;
+        proxy_pass $td_cache;
         proxy_set_header x-td-cache-token "${TD_CACHE_TOKEN}";
         client_max_body_size 256k;
     }

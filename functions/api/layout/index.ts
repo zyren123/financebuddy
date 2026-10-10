@@ -1,5 +1,6 @@
 import { handleLayoutRequest } from '../../../server/layoutApi'
 import type { LayoutRequest, LayoutResult, LayoutStore } from '../../../server/layoutApi'
+import { readEdgeEnv } from '../../../server/edgeEnv'
 import { relayLayoutRequest, vpsRelayFromEnv } from '../../../server/vpsRelay'
 
 /**
@@ -25,8 +26,7 @@ export async function onRequest(context: EdgeOneContext): Promise<Response> {
   const respond = (result: LayoutResult) =>
     new Response(result.body, { status: result.status, headers: { 'content-type': 'application/json' } })
 
-  const processEnv = typeof process !== 'undefined' ? process.env : undefined
-  const relay = vpsRelayFromEnv({ ...processEnv, ...env })
+  const relay = vpsRelayFromEnv(readEdgeEnv(env, ['TD_CACHE_URL', 'TD_CACHE_TOKEN']))
   if (relay) return respond(await relayLayoutRequest(relay, layoutReq))
 
   const kv = (env?.LAYOUT_KV as LayoutStore | undefined) ?? (globalThis as { LAYOUT_KV?: LayoutStore }).LAYOUT_KV
