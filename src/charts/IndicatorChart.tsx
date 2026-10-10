@@ -41,8 +41,9 @@ export function IndicatorChart({
     const chart = chartRef.current
     if (!chart) return
     const line = chart.addSeries(LineSeries, {
-      color: CHART_COLORS.series[0]!,
+      color: CHART_COLORS.single,
       lineWidth: 2,
+      crosshairMarkerBorderColor: CHART_COLORS.surface,
       priceLineVisible: false,
       lastValueVisible: false,
       priceFormat: { type: 'price', precision, minMove: Math.pow(10, -precision) },
@@ -75,7 +76,7 @@ export function IndicatorChart({
     priceLinesRef.current = refLines.map((price) =>
       line.createPriceLine({
         price,
-        color: 'rgba(120, 123, 134, 0.6)',
+        color: CHART_COLORS.copperDim,
         lineWidth: 1,
         lineStyle: LineStyle.Dashed,
         axisLabelVisible: true,
@@ -96,18 +97,18 @@ export function IndicatorChart({
   const shown = readout ?? (points.length > 0 ? { date: points[points.length - 1]!.datetime, value: points[points.length - 1]!.value } : null)
 
   return (
-    <div className="relative h-full w-full">
-      <div ref={containerRef} className="chart-surface h-full w-full" />
+    <div className="flex h-full w-full flex-col">
       {shown && (
-        <div className="pointer-events-none absolute left-2 top-1.5 z-10 flex items-center gap-3 rounded bg-surface/70 px-1 py-0.5 text-[11px] tabular-nums backdrop-blur-[2px]">
-          <span className="font-semibold text-ink">{title}</span>
-          <span className="text-ink-muted">{shown.date}</span>
+        <div className="num flex shrink-0 items-baseline gap-4 px-1 pb-2 text-[11px]">
+          <span className="text-ink-muted">{title}</span>
           <span className="text-ink">
             {shown.value.toFixed(precision)}
             {unit}
           </span>
+          <span className="ml-auto text-ink-faint">{shown.date}</span>
         </div>
       )}
+      <div ref={containerRef} className="chart-surface min-h-0 w-full flex-1" />
     </div>
   )
 }

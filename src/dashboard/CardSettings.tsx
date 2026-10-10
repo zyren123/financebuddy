@@ -2,6 +2,7 @@ import { RANGE_OPTIONS } from '../charts/convert'
 import type { RangeKey } from '../charts/convert'
 import { MAX_SERIES_PER_CARD } from '../charts/theme'
 import type { CardConfig, IndicatorKind, RatioRocCardConfig } from './types'
+import { CloseIcon, PlusIcon } from '../ui/icons'
 
 interface Props {
   card: CardConfig
@@ -9,13 +10,13 @@ interface Props {
 }
 
 const inputCls =
-  'w-24 rounded border border-edge bg-surface px-1.5 py-0.5 text-[11px] text-ink outline-none focus:border-accent'
+  'num w-24 border border-field bg-void px-2 py-1 text-[11px] text-ink outline-none focus:border-copper'
 const labelCls = 'text-ink-muted'
 
 /** 编辑模式下的卡片参数表单(改动写 Draft,发布才对访客生效) */
 export function CardSettings({ card, onChange }: Props) {
   return (
-    <div className="flex h-full flex-col gap-2 overflow-auto p-2 text-[11px]">
+    <div className="flex h-full flex-col gap-3 overflow-auto p-1 text-[12px]">
       {card.kind === 'candle' && (
         <label className="flex items-center gap-2">
           <span className={labelCls}>Ticker</span>
@@ -83,12 +84,12 @@ export function CardSettings({ card, onChange }: Props) {
 
       <div className="flex items-center gap-2">
         <span className={labelCls}>默认范围</span>
-        <div className="flex overflow-hidden rounded border border-edge">
+        <div className="num flex border border-field">
           {RANGE_OPTIONS.map((opt) => (
             <button
               key={opt.key}
               type="button"
-              className={`px-1.5 py-0.5 ${card.range === opt.key ? 'bg-accent text-white' : 'bg-surface text-ink-muted hover:text-ink'}`}
+              className={`px-2 py-1 ${card.range === opt.key ? 'bg-ink text-void' : 'text-ink-muted hover:text-ink'}`}
               onClick={() => onChange({ range: opt.key as RangeKey } as Partial<CardConfig>)}
             >
               {opt.label}
@@ -141,21 +142,21 @@ function RatioPairsEditor({ card, onChange }: { card: RatioRocCardConfig; onChan
           />
           <button
             type="button"
-            className="px-1 text-ink-muted hover:text-down"
+            className="p-1 text-ink-muted hover:text-down"
             onClick={() => setPairs(pairs.filter((_, j) => j !== i))}
             aria-label="删除此 Ratio"
           >
-            ✕
+            <CloseIcon />
           </button>
         </div>
       ))}
       {canAdd && (
         <button
           type="button"
-          className="w-fit rounded border border-edge px-1.5 py-0.5 text-ink-muted hover:text-ink"
+          className="inline-flex w-fit items-center gap-1.5 border border-edge px-2 py-1 text-ink-muted hover:border-copper hover:text-ink"
           onClick={() => setPairs([...pairs, { numerator: '', denominator: 'QQQ' }])}
         >
-          + 添加 Ratio
+          <PlusIcon /> 添加 Ratio
         </button>
       )}
     </div>

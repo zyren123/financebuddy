@@ -13,3 +13,6 @@ dist/
 
 # Claude Code 本地状态(worktree、会话设置)
 .claude/
+
+# Impeccable 设计工具本地状态(决策草图、方向记录、问答状态)
+.impeccable/

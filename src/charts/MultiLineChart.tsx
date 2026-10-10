@@ -47,15 +47,16 @@ export function MultiLineChart({
       chart.addSeries(LineSeries, {
         color: CHART_COLORS.series[i % CHART_COLORS.series.length]!,
         lineWidth: 2,
+        crosshairMarkerBorderColor: CHART_COLORS.surface,
         priceLineVisible: false,
         lastValueVisible: false,
         priceFormat: { type: 'price', precision: 2, minMove: 0.01 },
       }),
     )
-    // 0 轴参考线(ROC 的极性锚点),放在首条序列上
+    // 0 轴参考线(ROC 的极性锚点,即封面探测器的顶点),放在首条序列上
     created[0]?.createPriceLine({
       price: 0,
-      color: 'rgba(120, 123, 134, 0.6)',
+      color: CHART_COLORS.copper,
       lineWidth: 1,
       lineStyle: LineStyle.Dashed,
       axisLabelVisible: false,
@@ -101,29 +102,33 @@ export function MultiLineChart({
 
   const lastValues = series.map((s) => s.points.at(-1)?.value)
 
+  const lastDate = series
+    .flatMap((s) => s.points.slice(-1))
+    .map((p) => p.datetime)
+    .sort()
+    .at(-1)
+
   return (
-    <div className="relative h-full w-full">
-      <div ref={containerRef} className="chart-surface h-full w-full" />
-      {/* 图例:文本用 ink token,色块承载序列身份 */}
-      <div className="pointer-events-none absolute left-2 top-1.5 z-10 flex flex-col gap-0.5 rounded bg-surface/70 px-1 py-0.5 text-[11px] tabular-nums backdrop-blur-[2px]">
-        {crosshair && <span className="text-ink-muted">{crosshair.date}</span>}
+    <div className="flex h-full w-full flex-col">
+      {/* 图例:文本用 ink token,色线承载序列身份;十字线移动时读数跟随 */}
+      <div className="num flex shrink-0 flex-wrap items-baseline gap-x-5 gap-y-1 px-1 pb-2 text-[11px]">
         {series.map((spec, i) => {
           const value = crosshair?.values[i] ?? lastValues[i]
           return (
-            <span key={spec.label} className="flex items-center gap-1.5">
+            <span key={spec.label} className="flex items-baseline gap-2">
               <span
                 aria-hidden
-                className="inline-block h-[3px] w-4 rounded-full"
+                className="inline-block h-[2px] w-4 self-center"
                 style={{ backgroundColor: CHART_COLORS.series[i % CHART_COLORS.series.length] }}
               />
-              <span className="text-ink">{spec.label}</span>
-              <span className="text-ink-muted">
-                {value != null ? `${value.toFixed(2)}${unit}` : '—'}
-              </span>
+              <span className="text-ink-muted">{spec.label}</span>
+              <span className="text-ink">{value != null ? `${value.toFixed(2)}${unit}` : '—'}</span>
             </span>
           )
         })}
+        <span className="ml-auto text-ink-faint">{crosshair?.date ?? lastDate}</span>
       </div>
+      <div ref={containerRef} className="chart-surface min-h-0 w-full flex-1" />
     </div>
   )
 }

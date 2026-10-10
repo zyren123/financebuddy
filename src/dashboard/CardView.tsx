@@ -11,27 +11,22 @@ import { ema, sma } from '../indicators/overlap'
 import { rsi, roc } from '../indicators/momentum'
 import { ratioRoc } from '../indicators/ratio'
 import type { CardConfig } from './types'
+import { describeDataError } from '../data/errors'
 
 function uniq(values: string[]): string[] {
   return [...new Set(values)]
 }
 
+/** 缺数状态:一个空槽位加一张说明标签,而不是红字报错 */
 function Status({ loading, error }: { loading: boolean; error: Error | null }) {
-  if (error) {
-    return (
-      <div className="flex h-full items-center justify-center p-4 text-center text-xs text-down">
-        数据加载失败:{error.message}
+  if (!error && !loading) return null
+  return (
+    <div className="flex h-full items-center justify-center p-4">
+      <div className="max-w-[34ch] border border-dashed border-copper-dim px-4 py-3 text-center text-[12px] leading-relaxed text-ink-muted">
+        {error ? describeDataError(error) : '取数中…免费配额每分钟 8 次,多标的会分批点亮'}
       </div>
-    )
-  }
-  if (loading) {
-    return (
-      <div className="flex h-full items-center justify-center text-xs text-ink-muted">
-        加载中…(免费配额 8 次/分钟,多标的会分批点亮)
-      </div>
-    )
-  }
-  return null
+    </div>
+  )
 }
 
 function computeIndicator(kind: string, period: number, bars: Bar[]): Point[] {

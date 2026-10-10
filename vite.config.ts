@@ -17,6 +17,10 @@ export default defineConfig(({ mode }) => {
   const adminToken = env.ADMIN_TOKEN || 'dev-admin-token' // 注意 ||:空串(照抄 .env.example 未填)也要落到缺省
 
   return {
+    server: {
+      // 设计工具(.impeccable/)会周期性写状态文件;不忽略的话 Vite 每次都整页刷新
+      watch: { ignored: ['**/.impeccable/**'] },
+    },
     plugins: [
       react(),
       tailwindcss(),
