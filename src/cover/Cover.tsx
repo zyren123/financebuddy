@@ -82,7 +82,7 @@ export function Cover({ data, period, detectorRef, textRefs, onEnter }: Props) {
           <button
             type="button"
             onClick={onEnter}
-            className="group inline-flex items-center gap-3 bg-ink px-5 py-3 text-[15px] font-medium text-void transition-colors duration-200 hover:bg-copper"
+            className="group inline-flex items-center gap-3 bg-ink px-5 py-3 text-[15px] font-medium text-void transition-colors duration-200 hover:bg-ink-muted"
           >
             进入图表
             <ArrowDownIcon className="transition-transform duration-300 ease-out group-hover:translate-y-0.5" />

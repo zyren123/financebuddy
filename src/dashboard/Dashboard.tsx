@@ -16,9 +16,9 @@ import type { PresetKey } from './presets'
 const btn =
   'inline-flex items-center gap-1.5 border border-edge px-2.5 py-1.5 text-[12px] text-ink-muted transition-colors duration-150 hover:border-copper hover:text-ink disabled:opacity-40 disabled:hover:border-edge disabled:hover:text-ink-muted'
 const btnPrimary =
-  'inline-flex items-center gap-1.5 bg-ink px-2.5 py-1.5 text-[12px] font-medium text-void transition-colors duration-150 hover:bg-copper disabled:opacity-40 disabled:hover:bg-ink'
+  'inline-flex items-center gap-1.5 bg-ink px-2.5 py-1.5 text-[12px] font-medium text-void transition-colors duration-150 hover:bg-ink-muted disabled:opacity-40 disabled:hover:bg-ink'
 const inputCls =
-  'w-full border border-edge bg-void px-3 py-2 text-[13px] text-ink outline-none focus:border-copper'
+  'w-full border border-field bg-void px-3 py-2 text-[13px] text-ink outline-none focus:border-copper'
 
 interface Props {
   admin: ReturnType<typeof useAdmin>

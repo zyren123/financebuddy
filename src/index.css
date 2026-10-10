@@ -12,20 +12,22 @@
 
 /*
  * FinanceBuddy:对撞机事例显示
- * 暖黑真空底 + 铜色探测器硬件(发丝线,不发光)+ 信号色径迹。
+ * 纯黑真空底 + 零彩度中性字色 + 铜色只给探测器硬件(发丝线,不发光)+ 信号色径迹。
+ * 暖色只出现在铜件上,不给整面画布染色(之前全局偏棕,读起来像老照片滤镜)。
  * 径迹色见 charts/theme.ts(已过 dataviz validate_palette.js)。
  */
 @theme {
-  --color-void: #0e0c0b;
-  --color-void-raised: #171412;
-  --color-edge: #2b2420;
-  --color-copper: #b98a5e;
-  --color-copper-dim: #5a4636;
-  --color-ink: #ece5dc;
-  --color-ink-muted: #9c9187;
-  --color-ink-faint: #6f665e;
-  --color-up: #00a4c0;
-  --color-down: #e15a4e;
+  --color-void: #070707;
+  --color-void-raised: #0f0f0f;
+  --color-edge: #262626;
+  --color-field: #5e5e5e;
+  --color-copper: #d08b6f;
+  --color-copper-dim: #674335;
+  --color-ink: #ebebeb;
+  --color-ink-muted: #ababab;
+  --color-ink-faint: #868686;
+  --color-up: #00a5cc;
+  --color-down: #eb5249;
 
   --font-mono: 'Martian Mono Variable', ui-monospace, 'SF Mono', Menlo, monospace;
   --font-display: 'FB Display', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', sans-serif;
@@ -50,8 +52,8 @@ body {
 }
 
 ::selection {
-  background: var(--color-copper);
-  color: var(--color-void);
+  background: var(--color-copper-dim);
+  color: var(--color-ink);
 }
 
 :focus-visible {

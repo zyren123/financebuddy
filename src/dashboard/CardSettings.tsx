@@ -10,7 +10,7 @@ interface Props {
 }
 
 const inputCls =
-  'num w-24 border border-edge bg-void px-2 py-1 text-[11px] text-ink outline-none focus:border-copper'
+  'num w-24 border border-field bg-void px-2 py-1 text-[11px] text-ink outline-none focus:border-copper'
 const labelCls = 'text-ink-muted'
 
 /** 编辑模式下的卡片参数表单(改动写 Draft,发布才对访客生效) */
@@ -84,7 +84,7 @@ export function CardSettings({ card, onChange }: Props) {
 
       <div className="flex items-center gap-2">
         <span className={labelCls}>默认范围</span>
-        <div className="num flex border border-edge">
+        <div className="num flex border border-field">
           {RANGE_OPTIONS.map((opt) => (
             <button
               key={opt.key}

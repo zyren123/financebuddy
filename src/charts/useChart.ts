@@ -37,8 +37,8 @@ export function useChart() {
       timeScale: { borderColor: CHART_COLORS.edge, timeVisible: false, secondsVisible: false },
       crosshair: {
         mode: CrosshairMode.Normal,
-        vertLine: { color: CHART_COLORS.copperDim, labelBackgroundColor: CHART_COLORS.copperDim },
-        horzLine: { color: CHART_COLORS.copperDim, labelBackgroundColor: CHART_COLORS.copperDim },
+        vertLine: { color: CHART_COLORS.crosshair, labelBackgroundColor: CHART_COLORS.crosshairLabel },
+        horzLine: { color: CHART_COLORS.crosshair, labelBackgroundColor: CHART_COLORS.crosshairLabel },
       },
     })
     chartRef.current = chart

@@ -60,7 +60,7 @@ export function CandlestickChart({
     createTextWatermark(chart.panes()[0]!, {
       horzAlign: 'center',
       vertAlign: 'center',
-      lines: [{ text: symbol, color: 'rgba(185, 138, 94, 0.08)', fontSize: 56, fontFamily: MONO_FONT }],
+      lines: [{ text: symbol, color: CHART_COLORS.watermark, fontSize: 56, fontFamily: MONO_FONT }],
     })
 
     candleRef.current = candle
