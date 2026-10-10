@@ -2,7 +2,7 @@ import path from 'node:path'
 import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
-import { proxyTwelveData } from './server/tdProxy'
+import { proxyTwelveData, upstreamFromEnv } from './server/tdProxy'
 import { handleLayoutRequest } from './server/layoutApi'
 import { createDevLayoutStore } from './server/devLayoutStore'
 import { readBody } from './server/readBody'
@@ -13,7 +13,12 @@ import { readBody } from './server/readBody'
 // ADMIN_TOKEN 缺省 dev-admin-token(仅本机;生产必须配真实口令)。
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
-  const apiKey = env.API_KEY ?? process.env.API_KEY ?? ''
+  // dev 沿用 .env 的 API_KEY;另配 TD_CACHE_URL + TD_CACHE_TOKEN 可改走 VPS 共享缓存
+  const tdUpstream = upstreamFromEnv({
+    TWELVEDATA_API_KEY: env.API_KEY || process.env.API_KEY || '',
+    TD_CACHE_URL: env.TD_CACHE_URL,
+    TD_CACHE_TOKEN: env.TD_CACHE_TOKEN,
+  })
   const adminToken = env.ADMIN_TOKEN || 'dev-admin-token' // 注意 ||:空串(照抄 .env.example 未填)也要落到缺省
 
   return {
@@ -40,7 +45,7 @@ export default defineConfig(({ mode }) => {
                 res.end(JSON.stringify({ error: 'method not allowed' }))
                 return
               }
-              const result = await proxyTwelveData(new URL(req.url, 'http://localhost'), apiKey)
+              const result = await proxyTwelveData(new URL(req.url, 'http://localhost'), tdUpstream)
               res.statusCode = result.status
               res.setHeader('content-type', 'application/json')
               res.end(result.body)

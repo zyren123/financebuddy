@@ -1,0 +1,18 @@
+server {
+    listen 80;
+    root /usr/share/nginx/html;
+
+    location = /api/td {
+        proxy_pass http://td-cache:8787;
+        proxy_set_header x-td-cache-token "${TD_CACHE_TOKEN}";
+    }
+
+    # 布局接口不在 VPS 上:返回 404,前端按 ADR-0003 读取链回落出厂布局
+    location /api/ {
+        return 404;
+    }
+
+    location / {
+        try_files $uri /index.html;
+    }
+}

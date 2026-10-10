@@ -1,0 +1,11 @@
+{
+  "name": "financebuddy-td-cache",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node main.ts"
+  },
+  "dependencies": {
+    "redis": "5.10.0"
+  }
+}

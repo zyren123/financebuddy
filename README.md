@@ -64,6 +64,10 @@ key 只用于本地 dev proxy 转发,不进前端代码。
 3. 环境变量设置 `TWELVEDATA_API_KEY` 与 `ADMIN_TOKEN`;
 4. 部署。`api/td.ts`、`api/layout.ts` 自动成为对应 serverless 端点。
 
+### 行情共享缓存(可选,推荐)
+
+平台函数的进程内缓存跨实例不共享,每个新访客都会消耗额度。在两个平台的环境变量里再设 `TD_CACHE_URL` 与 `TD_CACHE_TOKEN`,`/api/td` 就改为转发到 VPS 上的共享缓存(ADR-0004,部署见 `vps/README.md`);不设则直连 Twelve Data。
+
 ### 腾讯 EdgeOne Pages
 
 1. 控制台创建项目并接入 Git 仓库(框架识别为 Vite);
