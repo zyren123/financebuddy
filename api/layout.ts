@@ -42,7 +42,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       store,
       process.env.ADMIN_TOKEN,
     )
-    res.status(result.status).type('application/json').send(result.body)
+    res.setHeader('content-type', 'application/json')
+    res.status(result.status).send(result.body)
   } catch (err) {
     res.status(500).json({ error: 'layout store unavailable', detail: String(err) })
   }
