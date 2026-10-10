@@ -1,3 +1,4 @@
+import { readEdgeEnv } from '../../../server/edgeEnv'
 import { proxyTwelveData, upstreamFromEnv } from '../../../server/tdProxy'
 
 /**
@@ -15,8 +16,8 @@ export async function onRequest(context: EdgeOneContext): Promise<Response> {
   if (request.method !== 'GET') {
     return Response.json({ error: 'method not allowed' }, { status: 405 })
   }
-  const processEnv = typeof process !== 'undefined' ? process.env : undefined
-  const result = await proxyTwelveData(new URL(request.url), upstreamFromEnv({ ...processEnv, ...env }))
+  const vars = readEdgeEnv(env, ['TWELVEDATA_API_KEY', 'TD_CACHE_URL', 'TD_CACHE_TOKEN'])
+  const result = await proxyTwelveData(new URL(request.url), upstreamFromEnv(vars))
   return new Response(result.body, {
     status: result.status,
     headers: { 'content-type': 'application/json' },

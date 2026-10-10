@@ -1,5 +1,12 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { createMemorySnapshotStore, createTdCache, SNAPSHOT_TTL_MS, sliceSnapshot, type RawBar } from './tdCache'
+import {
+  createMemorySnapshotStore,
+  createTdCache,
+  FAILURE_COOLDOWN_MS,
+  SNAPSHOT_TTL_MS,
+  sliceSnapshot,
+  type RawBar,
+} from './tdCache'
 
 // 新→旧,与上游一致
 const bars = (dates: string[]): RawBar[] => dates.map((datetime) => ({ datetime, close: '1' }))
@@ -50,11 +57,11 @@ describe('createTdCache', () => {
     expect(results.every((r) => r.status === 200)).toBe(true)
   })
 
-  it('不同 interval 是不同快照', async () => {
+  it('不同 symbol 是不同快照', async () => {
     const fetchMock = stubUpstream(ok, ok)
     const handle = createTdCache({ store: createMemorySnapshotStore(), apiKey: 'k' })
     await handle(q('symbol=QQQ&interval=1day'))
-    await handle(q('symbol=QQQ&interval=1week'))
+    await handle(q('symbol=VTV&interval=1day'))
     expect(fetchMock).toHaveBeenCalledTimes(2)
   })
 
@@ -73,14 +80,45 @@ describe('createTdCache', () => {
     expect(JSON.parse(r.body).values).toHaveLength(1)
   })
 
-  it('无快照时上游错误原样透传且不缓存', async () => {
+  it('无快照时上游错误原样透传;冷却期内不再打上游,冷却后重试', async () => {
+    let t = 0
     const bad = { status: 200, body: { code: 400, status: 'error', message: 'symbol not found' } }
-    const fetchMock = stubUpstream(bad, bad)
-    const handle = createTdCache({ store: createMemorySnapshotStore(), apiKey: 'k' })
+    const fetchMock = stubUpstream(bad, ok)
+    const store = createMemorySnapshotStore()
+    const handle = createTdCache({ store, apiKey: 'k', now: () => t })
     const r1 = await handle(q('symbol=NOPE&interval=1day'))
-    await handle(q('symbol=NOPE&interval=1day'))
+    const r2 = await handle(q('symbol=NOPE&interval=1day'))
     expect(r1.body).toContain('symbol not found')
+    expect(r2.body).toContain('symbol not found')
+    expect(fetchMock).toHaveBeenCalledTimes(1)
+    expect(await store.get('td:time_series:NOPE:1day')).toBeNull()
+
+    t = FAILURE_COOLDOWN_MS + 1
+    const r3 = await handle(q('symbol=NOPE&interval=1day'))
     expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(r3.outcome).toBe('miss')
+  })
+
+  it('额度用完时有旧快照:冷却期内的访客都拿旧快照,上游只打一次', async () => {
+    let t = 0
+    const limit = { status: 429, body: { code: 429, status: 'error', message: 'run out of credits' } }
+    const fetchMock = stubUpstream(ok, limit)
+    const handle = createTdCache({ store: createMemorySnapshotStore(), apiKey: 'k', now: () => t })
+    await handle(q('symbol=QQQ&interval=1day'))
+    t = SNAPSHOT_TTL_MS + 1
+    const results = [await handle(q('symbol=QQQ&interval=1day')), await handle(q('symbol=QQQ&interval=1day'))]
+    expect(results.map((r) => r.outcome)).toEqual(['stale', 'stale'])
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+  })
+
+  it('存储写入失败:仍返回刚拿到的新数据', async () => {
+    stubUpstream(ok)
+    const store = { get: async () => null, set: async () => Promise.reject(new Error('redis down')) }
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+    const handle = createTdCache({ store, apiKey: 'k' })
+    const r = await handle(q('symbol=QQQ&interval=1day'))
+    expect(r.status).toBe(200)
+    expect(r.outcome).toBe('miss')
   })
 
   it('区间内无数据:与上游一致返回业务错误', async () => {
@@ -93,6 +131,7 @@ describe('createTdCache', () => {
 
   it.each([
     'symbol=QQQ&interval=1min',
+    'symbol=QQQ&interval=1week',
     'symbol=QQQ&interval=1day&apikey=x',
     'symbol=QQQ&interval=1day&outputsize=0',
     'symbol=QQQ&interval=1day&start_date=yesterday',

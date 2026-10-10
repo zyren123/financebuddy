@@ -1,10 +1,32 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { handleLayoutRequest } from '../server/layoutApi'
-import type { LayoutStore } from '../server/layoutApi'
+import type { LayoutRequest, LayoutResult, LayoutStore } from '../server/layoutApi'
 import { readBody } from '../server/readBody'
+import { relayLayoutRequest, vpsRelayFromEnv } from '../server/vpsRelay'
 
-/** Vercel 适配:/api/layout(GET 读 / PUT 发布 / POST verify|restore),KV 用 Upstash Redis REST(ADR-0003) */
+/**
+ * Vercel 适配:/api/layout(GET 读 / PUT 发布 / POST verify|restore)。
+ * 配了 TD_CACHE_* 就转发到 VPS(ADR-0004),否则 KV 用 Upstash Redis REST(ADR-0003)。
+ */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  const headerToken = req.headers['x-admin-token']
+  const layoutReq: LayoutRequest = {
+    method: req.method ?? 'GET',
+    url: new URL(req.url ?? '/', 'https://financebuddy.local'),
+    body: await readBody(req),
+    adminToken: Array.isArray(headerToken) ? (headerToken[0] ?? null) : (headerToken ?? null),
+  }
+  const send = (result: LayoutResult) => {
+    res.setHeader('content-type', 'application/json')
+    res.status(result.status).send(result.body)
+  }
+
+  const relay = vpsRelayFromEnv(process.env)
+  if (relay) {
+    send(await relayLayoutRequest(relay, layoutReq))
+    return
+  }
+
   const base = process.env.UPSTASH_REDIS_REST_URL
   const restToken = process.env.UPSTASH_REDIS_REST_TOKEN
   if (!base || !restToken) {
@@ -30,20 +52,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     },
   }
 
-  const headerToken = req.headers['x-admin-token']
   try {
-    const result = await handleLayoutRequest(
-      {
-        method: req.method ?? 'GET',
-        url: new URL(req.url ?? '/', 'https://financebuddy.local'),
-        body: await readBody(req),
-        adminToken: Array.isArray(headerToken) ? (headerToken[0] ?? null) : (headerToken ?? null),
-      },
-      store,
-      process.env.ADMIN_TOKEN,
-    )
-    res.setHeader('content-type', 'application/json')
-    res.status(result.status).send(result.body)
+    send(await handleLayoutRequest(layoutReq, store, process.env.ADMIN_TOKEN))
   } catch (err) {
     res.status(500).json({ error: 'layout store unavailable', detail: String(err) })
   }
