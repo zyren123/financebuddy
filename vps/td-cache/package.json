@@ -3,9 +3,13 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "start": "node main.ts"
+    "build": "esbuild main.ts --bundle --platform=node --format=esm --target=node24 --external:redis --outfile=dist/main.mjs",
+    "start": "node dist/main.mjs"
   },
   "dependencies": {
     "redis": "5.10.0"
+  },
+  "devDependencies": {
+    "esbuild": "0.28.2"
   }
 }

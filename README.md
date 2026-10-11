@@ -66,7 +66,7 @@ key 只用于本地 dev proxy 转发,不进前端代码。
 
 ### 行情共享缓存(可选,推荐)
 
-平台函数的进程内缓存跨实例不共享,每个新访客都会消耗额度。在两个平台的环境变量里再设 `TD_CACHE_URL` 与 `TD_CACHE_TOKEN`,`/api/td` 就改为转发到 VPS 上的共享缓存(ADR-0004,部署见 `vps/README.md`);不设则直连 Twelve Data。
+平台函数的进程内缓存跨实例不共享,每个新访客都会消耗额度。在两个平台的环境变量里设 `TD_CACHE_URL` 与 `TD_CACHE_TOKEN`,`/api/td` 与 `/api/layout` 就都转发到 VPS(行情共享缓存 + 全局唯一的布局,ADR-0004,部署见 `vps/README.md`),此时平台上不需要 `TWELVEDATA_API_KEY`、`ADMIN_TOKEN` 和 KV。不设则按下面各平台的说明直连 Twelve Data、布局存平台 KV。
 
 ### 腾讯 EdgeOne Pages
 

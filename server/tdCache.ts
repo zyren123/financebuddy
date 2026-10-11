@@ -4,7 +4,7 @@
  * 只用 Web 标准 API;存储经 SnapshotStore 注入(VPS 用 Redis,测试与本地用内存)。
  */
 
-export type Interval = '1day' | '1week' | '1month'
+export type Interval = '1day'
 
 export interface RawBar {
   datetime: string
@@ -39,12 +39,15 @@ export interface CacheResult {
   outcome: CacheOutcome
 }
 
-const INTERVALS = new Set<string>(['1day', '1week', '1month'])
+// 前端只请求日线;周/月线的区间语义(含当前未完结周期)未与上游核对过,先不放行
+const INTERVALS = new Set<string>(['1day'])
 const ALLOWED_PARAMS = new Set(['endpoint', 'symbol', 'interval', 'outputsize', 'start_date', 'end_date'])
 const SYMBOL_RE = /^[A-Za-z0-9.\-:/]{1,20}$/
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
 const FULL_SIZE = 5000
 export const SNAPSHOT_TTL_MS = 6 * 60 * 60 * 1000
+export const FAILURE_COOLDOWN_MS = 5 * 60 * 1000
+const UPSTREAM_TIMEOUT_MS = 15_000
 
 const json = (status: number, payload: unknown, outcome: CacheOutcome) => ({
   status,
@@ -112,6 +115,8 @@ export interface TdCacheDeps {
 export function createTdCache({ store, apiKey, now = Date.now }: TdCacheDeps) {
   // 同一 key 的并发刷新合并为一次上游调用(冷启动时多个访客同时到达)
   const inflight = new Map<string, Promise<Snapshot | { status: number; body: string }>>()
+  // 上游失败(429 额度用完、故障)后该 key 冷却一段时间,期间不再打上游,有旧快照就回旧快照
+  const failures = new Map<string, { at: number; result: { status: number; body: string } }>()
 
   async function fetchFull(q: SeriesQuery): Promise<Snapshot | { status: number; body: string }> {
     const params = new URLSearchParams({
@@ -123,7 +128,9 @@ export function createTdCache({ store, apiKey, now = Date.now }: TdCacheDeps) {
     let status: number
     let body: string
     try {
-      const res = await fetch(`https://api.twelvedata.com/time_series?${params.toString()}`)
+      const res = await fetch(`https://api.twelvedata.com/time_series?${params.toString()}`, {
+        signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
+      })
       status = res.status
       body = await res.text()
     } catch (err) {
@@ -142,10 +149,22 @@ export function createTdCache({ store, apiKey, now = Date.now }: TdCacheDeps) {
   }
 
   function refresh(key: string, q: SeriesQuery) {
+    const failure = failures.get(key)
+    if (failure && now() - failure.at < FAILURE_COOLDOWN_MS) return Promise.resolve(failure.result)
     let pending = inflight.get(key)
     if (!pending) {
       pending = fetchFull(q).then(async (result) => {
-        if ('values' in result) await store.set(key, result)
+        if (!('values' in result)) {
+          failures.set(key, { at: now(), result })
+          return result
+        }
+        failures.delete(key)
+        try {
+          await store.set(key, result)
+        } catch (err) {
+          // 存储故障不该吞掉已到手的新数据;下次请求会再刷新
+          console.error('snapshot store set failed', key, err)
+        }
         return result
       })
       pending.finally(() => inflight.delete(key)).catch(() => {})

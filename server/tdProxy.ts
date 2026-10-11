@@ -10,6 +10,8 @@
  * (server/tdCache.ts),否则用 TWELVEDATA_API_KEY 直连 Twelve Data。
  */
 
+import { relayToVps, vpsRelayFromEnv, type VpsRelay } from './vpsRelay'
+
 // 只代理白名单端点,防止变成开放代理被人烧配额(v1 只需要 time_series)
 const ALLOWED_ENDPOINTS = new Set(['/time_series'])
 
@@ -19,16 +21,11 @@ const ALLOWED_ENDPOINTS = new Set(['/time_series'])
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000
 const cache = new Map<string, { body: string; fetchedAt: number }>()
 
-export type Upstream =
-  | { kind: 'direct'; apiKey: string | undefined }
-  | { kind: 'relay'; baseUrl: string; token: string }
-
-export const TD_CACHE_TOKEN_HEADER = 'x-td-cache-token'
+export type Upstream = { kind: 'direct'; apiKey: string | undefined } | ({ kind: 'relay' } & VpsRelay)
 
 export function upstreamFromEnv(env: Record<string, string | undefined>): Upstream {
-  const baseUrl = env.TD_CACHE_URL
-  const token = env.TD_CACHE_TOKEN
-  if (baseUrl && token) return { kind: 'relay', baseUrl: baseUrl.replace(/\/+$/, ''), token }
+  const relay = vpsRelayFromEnv(env)
+  if (relay) return { kind: 'relay', ...relay }
   return { kind: 'direct', apiKey: env.TWELVEDATA_API_KEY }
 }
 
@@ -71,14 +68,7 @@ export async function proxyTwelveData(url: URL, upstream: Upstream): Promise<Pro
   }
   if (upstream.kind === 'relay') {
     // VPS 已按 symbol 缓存全量;这里再叠一层进程缓存只会让 EOD 更新再晚 6h
-    try {
-      const res = await fetch(`${upstream.baseUrl}/api/td?${url.searchParams.toString()}`, {
-        headers: { [TD_CACHE_TOKEN_HEADER]: upstream.token },
-      })
-      return { status: res.status, body: await res.text() }
-    } catch (err) {
-      return json(502, { error: 'td cache fetch failed', detail: String(err) })
-    }
+    return relayToVps(upstream, `/api/td?${url.searchParams.toString()}`)
   }
 
   const { apiKey } = upstream
