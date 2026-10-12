@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { CHART_COLORS } from '../charts/theme'
 import type { RatioReading } from '../data/useRatioReadings'
 import { formatSigned } from '../ui/CountUp'
@@ -26,6 +26,19 @@ export const trackDelay = (i: number) => FIRE_DELAY_MS + i * STAGGER_MS
  * 负值(成长跑赢)顺时针卷,正值逆时针卷;虚线幽灵径迹是 N 个交易日前的位置。
  */
 export function Detector({ readings, fired, active, onActive, compact = false, className }: Props) {
+  // 径迹与 fired 在同一次渲染出现,首帧就是终点,transition 没有起点可播。
+  // 先让径迹以未卷出的样子画一帧,再挂 .fired
+  const [armed, setArmed] = useState(false)
+  useEffect(() => {
+    if (!fired) {
+      setArmed(false)
+      return
+    }
+    let id = requestAnimationFrame(() => {
+      id = requestAnimationFrame(() => setArmed(true))
+    })
+    return () => cancelAnimationFrame(id)
+  }, [fired])
   const { step, rings } = useMemo(
     () => ringScale(readings.flatMap((r) => [r.value, r.previous ?? 0])),
     [readings],
@@ -46,7 +59,7 @@ export function Detector({ readings, fired, active, onActive, compact = false, c
   return (
     <svg
       viewBox={`0 0 ${VIEW} ${VIEW}`}
-      className={`${fired ? 'fired' : ''} ${className ?? ''}`}
+      className={`${armed ? 'fired' : ''} ${className ?? ''}`}
       role={compact ? undefined : 'img'}
       aria-hidden={compact || undefined}
       aria-label={compact ? undefined : `探测器读数:${summary || '取数中'}。每环 ${step}%`}
