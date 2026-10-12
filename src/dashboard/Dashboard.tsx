@@ -5,7 +5,7 @@ import { CHART_COLORS } from '../charts/theme'
 import { Detector } from '../cover/Detector'
 import type { RatioReadings } from '../data/useRatioReadings'
 import { formatSigned } from '../ui/CountUp'
-import { CheckIcon, PencilIcon, PlusIcon } from '../ui/icons'
+import { ArrowUpRightIcon, CheckIcon, PencilIcon, PlusIcon } from '../ui/icons'
 import { useMediaQuery } from '../ui/useMediaQuery'
 import type { useAdmin } from './useAdmin'
 import { cardFactories } from './useDashboard'
@@ -333,6 +333,23 @@ export function Dashboard({ admin, dashboard, readings, headerRef, emblemRef }: 
             </div>
           </div>
         )}
+
+        <footer className="mt-16 flex flex-wrap items-baseline gap-x-4 gap-y-1 border-t border-edge pt-5 md:mt-24">
+          <span className="num text-[11px] text-ink-faint">方法来源</span>
+          <p className="text-[13px] leading-relaxed text-ink-muted">
+            Ratio ROC 指标参考自原作者的讲解视频：
+            <a
+              href="https://www.youtube.com/watch?v=PAQ4Y7D1JTM"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="ml-1 inline-flex items-baseline gap-1 text-ink underline decoration-field underline-offset-4 transition-colors duration-200 hover:decoration-copper"
+            >
+              在 YouTube 观看
+              <ArrowUpRightIcon className="self-center" />
+              <span className="sr-only">(在新标签页打开)</span>
+            </a>
+          </p>
+        </footer>
       </div>
 
       {loginOpen && (
