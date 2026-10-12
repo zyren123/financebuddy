@@ -10,7 +10,7 @@
  * (server/tdCache.ts),否则用 TWELVEDATA_API_KEY 直连 Twelve Data。
  */
 
-import { relayToVps, vpsRelayFromEnv, type VpsRelay } from './vpsRelay'
+import { relayToVps, vpsRelayFromEnv, type VpsRelay } from './vpsRelay.js'
 
 // 只代理白名单端点,防止变成开放代理被人烧配额(v1 只需要 time_series)
 const ALLOWED_ENDPOINTS = new Set(['/time_series'])

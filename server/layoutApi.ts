@@ -10,7 +10,7 @@
  *
  * 只用 Web 标准 API 与字符串,不含平台类型;存储经 LayoutStore 注入(两个 adapter 即真 seam)。
  */
-import { validateDashboardState } from '../src/dashboard/schema'
+import { validateDashboardState } from '../src/dashboard/schema.js'
 
 export const PUBLISHED_KEY = 'layout:published'
 export const PREV_KEY = 'layout:published:prev'
