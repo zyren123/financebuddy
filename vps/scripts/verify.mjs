@@ -3,7 +3,12 @@
 // 只请求 CGDV 一个标的:快照 6h 内命中缓存,不消耗 Twelve Data credit;过期时最多刷新 1 次。
 import { execFileSync } from 'node:child_process'
 
-const HOST = process.env.VPS_HOST ?? 'ubuntu@140.245.103.19'
+// ssh 目标,如 ~/.ssh/config 里的别名;不写死在仓库里
+const HOST = process.env.VPS_HOST
+if (!HOST) {
+  console.error('需要 VPS_HOST,例如 VPS_HOST=fb-vps node vps/scripts/verify.mjs')
+  process.exit(2)
+}
 const API = process.env.VPS_API_URL ?? 'https://api.zenode.duckdns.org'
 const TD_QUERY = '/api/td?endpoint=time_series&symbol=CGDV&interval=1day&outputsize=5000'
 

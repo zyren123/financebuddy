@@ -2,20 +2,54 @@
 
 设计见 `docs/adr/0004-shared-td-cache-on-vps.md`。三个容器:`redis`(仅容器内网)、`td-cache`(`127.0.0.1:8787`)、`web`(备用前端,`127.0.0.1:8788`)。HTTPS 由 1Panel 的 OpenResty 反代负责。
 
-## 部署与自检
+## 镜像
 
-两个脚本都从本机运行,默认连 `ubuntu@140.245.103.19`,可用环境变量 `VPS_HOST` 覆盖。
+`.github/workflows/images.yml` 在 master 每次推送后,用 arm64 runner 构建 `web` 与 `td-cache`,推到 `ghcr.io/zyren123/financebuddy-web`、`ghcr.io/zyren123/financebuddy-td-cache`,tag 为完整提交 SHA 与 `latest`。PR 上只构建不推送,用来提前发现 Dockerfile 坏掉。VPS 不需要源码,也不在上面编译。
 
-- `vps/scripts/deploy.sh [ref]` 在 VPS 的 `~/financebuddy` 里从 GitHub 拉取 `ref`(默认 `master`,也可以是分支、tag 或完整 SHA),切到该提交后重建容器,并打印部署的提交。部署的是 origin 上的代码,本机未提交或未推送的改动不会上线。目录还不是 git 仓库时(首次部署或旧的 rsync 部署)会原地初始化。首次部署时它创建 `vps/.env`(权限 600),Twelve Data key 取自本地 `.env` 的 `API_KEY`,`TD_CACHE_TOKEN` 与 `ADMIN_TOKEN` 在 VPS 上随机生成。`vps/.env` 被 `.gitignore` 忽略,切提交不会动它,再运行会保留已有口令。
-- `node vps/scripts/verify.mjs` 检查容器、Redis、本机端口和公网 HTTPS 反代,任一项失败时退出码非 0。它只请求 CGDV 一个标的,快照有效期内不消耗 Twelve Data credit。
+GHCR 新包默认私有。第一次推送后到 GitHub 的 Packages 页把两个包设为 Public,VPS 就能匿名拉取;不想公开就在 VPS 上用只有 `read:packages` 权限的 token 执行一次 `docker login ghcr.io`。
 
-`vps/.env` 的变量:
+## 部署
+
+VPS 上的部署目录是 `~/financebuddy/vps`,只需要两个文件:`docker-compose.yml` 与 `.env`。上线是手动的,确认 Images workflow 在 master 上跑完后,在 VPS 上:
+
+```bash
+cd ~/financebuddy/vps
+sudo docker compose pull
+sudo docker compose up -d
+```
+
+`docker-compose.yml` 改动时(很少),先从 GitHub 取最新版再执行上面两步:
+
+```bash
+curl -fsSL -o docker-compose.yml https://raw.githubusercontent.com/zyren123/financebuddy/master/vps/docker-compose.yml
+```
+
+回滚:在 `.env` 加 `IMAGE_TAG=<提交 SHA>`,再 `pull` + `up -d`;删掉这一行回到 `latest`。
+
+compose 项目名在文件里固定为 `vps`,Redis 卷 `vps_redis-data` 不随目录变,重建容器不丢数据。
+
+### 首次部署
+
+```bash
+mkdir -p ~/financebuddy/vps && cd ~/financebuddy/vps
+curl -fsSL -o docker-compose.yml https://raw.githubusercontent.com/zyren123/financebuddy/master/vps/docker-compose.yml
+umask 077
+printf 'TWELVEDATA_API_KEY=%s\nTD_CACHE_TOKEN=%s\nADMIN_TOKEN=%s\n' '<Twelve Data key>' "$(openssl rand -hex 24)" "$(openssl rand -hex 16)" > .env
+sudo docker compose pull && sudo docker compose up -d
+```
+
+`.env` 的变量:
 
 ```
 TWELVEDATA_API_KEY=<Twelve Data key>
 TD_CACHE_TOKEN=<与平台环境变量一致>
 ADMIN_TOKEN=<Admin 发布口令>
+IMAGE_TAG=<可选,提交 SHA;不设为 latest>
 ```
+
+## 自检
+
+`VPS_HOST=<ssh 目标> node vps/scripts/verify.mjs` 从本机检查容器、Redis、本机端口和公网 HTTPS 反代,任一项失败时退出码非 0。`VPS_HOST` 建议用 `~/.ssh/config` 里的别名,服务器地址不写进仓库。它只请求 CGDV 一个标的,快照有效期内不消耗 Twelve Data credit。
 
 ## 1Panel 反代站点
 
@@ -38,6 +72,5 @@ ADMIN_TOKEN=<Admin 发布口令>
 ## 运维
 
 - 日志:`sudo docker compose logs -f td-cache`,每个请求一行 JSON,`outcome` 为 `hit` / `miss` / `stale` / `upstream-error`。
-- 改动合入 master 并推送后运行 `vps/scripts/deploy.sh`,再运行 `node vps/scripts/verify.mjs`。Redis 数据在 `redis-data` 卷里,重建容器不丢。
 - 布局存在同一个 Redis 的 `layout:published`(上一版在 `layout:published:prev`)。尚未发布时 `/api/layout` 返回 404,页面回落出厂布局 `public/default-dashboard.json`。
 - 换 Admin 口令:改 `vps/.env` 的 `ADMIN_TOKEN` 后执行 `sudo docker compose up -d td-cache`。
