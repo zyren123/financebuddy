@@ -57,3 +57,9 @@ export const SlidersIcon = (p: SVGProps<SVGSVGElement>) => (
     <circle cx="4.5" cy="10" r="1.5" />
   </Icon>
 )
+
+export const ArrowUpRightIcon = (p: SVGProps<SVGSVGElement>) => (
+  <Icon {...p}>
+    <path d="M4 10l6-6M5 4h5v5" />
+  </Icon>
+)
