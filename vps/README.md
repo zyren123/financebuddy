@@ -6,7 +6,7 @@
 
 两个脚本都从本机运行,默认连 `ubuntu@140.245.103.19`,可用环境变量 `VPS_HOST` 覆盖。
 
-- `vps/scripts/deploy.sh` 把当前检出同步到 VPS 的 `~/financebuddy`,然后重建容器。首次部署时它创建 `vps/.env`(权限 600),Twelve Data key 取自本地 `.env` 的 `API_KEY`,`TD_CACHE_TOKEN` 与 `ADMIN_TOKEN` 在 VPS 上随机生成。之后再运行会保留已有口令。
+- `vps/scripts/deploy.sh [ref]` 在 VPS 的 `~/financebuddy` 里从 GitHub 拉取 `ref`(默认 `master`,也可以是分支、tag 或完整 SHA),切到该提交后重建容器,并打印部署的提交。部署的是 origin 上的代码,本机未提交或未推送的改动不会上线。目录还不是 git 仓库时(首次部署或旧的 rsync 部署)会原地初始化。首次部署时它创建 `vps/.env`(权限 600),Twelve Data key 取自本地 `.env` 的 `API_KEY`,`TD_CACHE_TOKEN` 与 `ADMIN_TOKEN` 在 VPS 上随机生成。`vps/.env` 被 `.gitignore` 忽略,切提交不会动它,再运行会保留已有口令。
 - `node vps/scripts/verify.mjs` 检查容器、Redis、本机端口和公网 HTTPS 反代,任一项失败时退出码非 0。它只请求 CGDV 一个标的,快照有效期内不消耗 Twelve Data credit。
 
 `vps/.env` 的变量:
@@ -38,6 +38,6 @@ ADMIN_TOKEN=<Admin 发布口令>
 ## 运维
 
 - 日志:`sudo docker compose logs -f td-cache`,每个请求一行 JSON,`outcome` 为 `hit` / `miss` / `stale` / `upstream-error`。
-- 更新代码后运行 `vps/scripts/deploy.sh`,再运行 `node vps/scripts/verify.mjs`。Redis 数据在 `redis-data` 卷里,重建容器不丢。
+- 改动合入 master 并推送后运行 `vps/scripts/deploy.sh`,再运行 `node vps/scripts/verify.mjs`。Redis 数据在 `redis-data` 卷里,重建容器不丢。
 - 布局存在同一个 Redis 的 `layout:published`(上一版在 `layout:published:prev`)。尚未发布时 `/api/layout` 返回 404,页面回落出厂布局 `public/default-dashboard.json`。
 - 换 Admin 口令:改 `vps/.env` 的 `ADMIN_TOKEN` 后执行 `sudo docker compose up -d td-cache`。
