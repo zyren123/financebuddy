@@ -4,12 +4,12 @@ import type { CardConfig } from './types'
 /** 布局预设(Q10 结论):四宫格 / 自上而下 */
 export type PresetKey = 'quad' | 'flow'
 
-const MIN = { minW: 3, minH: 4 }
+export const MIN_SIZE = { minW: 3, minH: 4 }
 
 /** 按预设重排:以卡片当前顺序为准,生成全新布局 */
 export function layoutForPreset(preset: PresetKey, cards: CardConfig[]): Layout {
   if (preset === 'flow') {
-    return cards.map((c, i) => ({ i: c.id, x: 0, y: i, w: 12, h: 9, ...MIN }))
+    return cards.map((c, i) => ({ i: c.id, x: 0, y: i, w: 12, h: 9, ...MIN_SIZE }))
   }
   return cards.map((c, i) => ({
     i: c.id,
@@ -17,7 +17,7 @@ export function layoutForPreset(preset: PresetKey, cards: CardConfig[]): Layout 
     y: Math.floor(i / 2),
     w: 6,
     h: 10,
-    ...MIN,
+    ...MIN_SIZE,
   }))
 }
 
@@ -29,9 +29,9 @@ export function ensureLayout(cards: CardConfig[], layout: Layout): Layout {
   for (const card of cards) {
     const item = existing.get(card.id)
     if (item) {
-      out.push({ ...MIN, ...item })
+      out.push({ ...MIN_SIZE, ...item })
     } else {
-      out.push({ i: card.id, x: 0, y: nextY, w: 12, h: 8, ...MIN })
+      out.push({ i: card.id, x: 0, y: nextY, w: 12, h: 8, ...MIN_SIZE })
       nextY += 8
     }
   }
