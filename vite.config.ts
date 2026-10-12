@@ -6,10 +6,11 @@ import { proxyTwelveData, upstreamFromEnv } from './server/tdProxy'
 import { handleLayoutRequest } from './server/layoutApi'
 import { createDevLayoutStore } from './server/devLayoutStore'
 import { readBody } from './server/readBody'
+import { relayLayoutRequest, vpsRelayFromEnv } from './server/vpsRelay'
 
 // 开发期 /api/td 由 Vite 中间件直接运行 server/tdProxy.ts 本体
 // (与生产的 Vercel / EdgeOne 适配器共用同一核心:白名单、6h 缓存、错误语义完全一致)。
-// 开发期 /api/layout 同理由中间件直接运行 server/layoutApi.ts(内存 KV,出厂 JSON 播种),
+// 开发期 /api/layout 配了 TD_CACHE_* 时转发到 VPS,否则用内存 KV 与出厂 JSON 播种。
 // ADMIN_TOKEN 缺省 dev-admin-token(仅本机;生产必须配真实口令)。
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
@@ -20,6 +21,7 @@ export default defineConfig(({ mode }) => {
     TD_CACHE_TOKEN: env.TD_CACHE_TOKEN,
   })
   const adminToken = env.ADMIN_TOKEN || 'dev-admin-token' // 注意 ||:空串(照抄 .env.example 未填)也要落到缺省
+  const layoutRelay = vpsRelayFromEnv(env)
 
   return {
     server: {
@@ -65,16 +67,15 @@ export default defineConfig(({ mode }) => {
             }
             void (async () => {
               const headerToken = req.headers['x-admin-token']
-              const result = await handleLayoutRequest(
-                {
-                  method: req.method ?? 'GET',
-                  url: new URL(req.url, 'http://localhost'),
-                  body: await readBody(req),
-                  adminToken: Array.isArray(headerToken) ? (headerToken[0] ?? null) : (headerToken ?? null),
-                },
-                store,
-                adminToken,
-              )
+              const layoutRequest = {
+                method: req.method ?? 'GET',
+                url: new URL(req.url, 'http://localhost'),
+                body: await readBody(req),
+                adminToken: Array.isArray(headerToken) ? (headerToken[0] ?? null) : (headerToken ?? null),
+              }
+              const result = layoutRelay
+                ? await relayLayoutRequest(layoutRelay, layoutRequest)
+                : await handleLayoutRequest(layoutRequest, store, adminToken)
               res.statusCode = result.status
               res.setHeader('content-type', 'application/json')
               res.end(result.body)

@@ -144,6 +144,7 @@ try {
 
   await page.goto(`${URL}/#admin`, { waitUntil: 'networkidle2' })
   await page.waitForSelector('input[type=password]', { timeout: 10_000 })
+  await page.$eval('input[type=password]', (input) => input.select())
   await page.type('input[type=password]', ADMIN_TOKEN)
   await page.keyboard.press('Enter')
   await sleep(500)
@@ -176,7 +177,7 @@ try {
   await page.mouse.up()
   await sleep(600)
   const publishEnabledAfterDrag = await page.evaluate(() => {
-    const b = [...document.querySelectorAll('button')].find((x) => x.textContent.trim() === '发布')
+    const b = [...document.querySelectorAll('button')].find((x) => x.textContent.trim() === '发布布局')
     return b ? !b.disabled : null
   })
   check('纯拖拽即点亮「发布」', publishEnabledAfterDrag === true, `enabled=${publishEnabledAfterDrag}`)
@@ -189,14 +190,14 @@ try {
   )
   check('flow 预设:卡片等宽铺满', widths.length === 3 && widths.every((w) => w > 700), widths.join(','))
 
-  const addBtn = await findBtn(page, '指标卡')
+  const addBtn = await findBtn(page, '添加指标卡')
   await addBtn.asElement().click()
   await sleep(400)
   const gridItems4 = await page.$$eval('.react-grid-item', (els) => els.length)
   check('添加卡片 → 4 张', gridItems4 === 4, `react-grid-item=${gridItems4}`)
 
   // 回归(PR #7):完成编辑后网格渲染 Published,其回调曾抹掉 Draft 里新卡片的位置,再进编辑变成 1×1
-  const finishBtn = await findBtn(page, '完成编辑')
+  const finishBtn = await findBtn(page, '返回浏览')
   await finishBtn.asElement().click()
   await sleep(600)
   await page.keyboard.press('e')
@@ -208,7 +209,7 @@ try {
     widthsAfterReenter.join(','),
   )
 
-  const publishBtn = await findBtn(page, '发布')
+  const publishBtn = await findBtn(page, '发布布局')
   await publishBtn.asElement().click()
   await sleep(1000)
   await page.screenshot({ path: `${OUT}-4-published.png` })

@@ -42,13 +42,13 @@ export function Cover({ data, period, detectorRef, textRefs, onEnter }: Props) {
           id="cover-title"
           className="font-display text-[clamp(3.25rem,10vw,6rem)] leading-[0.95] tracking-[-0.01em] text-ink"
         >
-          {headline ?? (error ? '暂时读不到' : '等待事例')}
+          {headline ?? (error ? '暂时读不到行情' : '正在读取行情')}
         </h1>
-        <p className="mt-4 max-w-[30ch] text-[17px] leading-relaxed text-ink md:mt-6 md:text-lg">
+        <p role={lead ? undefined : 'status'} className="mt-4 max-w-[30ch] text-[17px] leading-relaxed text-ink md:mt-6 md:text-lg">
           {lead ??
             (error
               ? describeDataError(error)
-              : `正在取数:${loaded}/${total} 个标的(免费配额每分钟 8 次,分批点亮)`)}
+              : `已读取 ${loaded}/${total} 个 Ticker。免费配额每分钟 8 次，多 Ticker 将分批加载。`)}
         </p>
       </div>
 
@@ -90,10 +90,6 @@ export function Cover({ data, period, detectorRef, textRefs, onEnter }: Props) {
           <span className="text-[13px] text-ink-faint">或向下滚动</span>
         </div>
 
-        <p className="mt-8 max-w-[44ch] text-[13px] leading-relaxed text-ink-muted md:mt-10">
-          Ratio ROC-{period}:把分子 ETF 的收盘价除以{den ? ` ${den} ` : '分母'}，再算这个比值的 {period}{' '}
-          日涨跌幅。为正，分子跑赢；为负，{den ?? '分母'}跑赢。
-        </p>
       </div>
 
       <figure className="relative order-2 m-0 mt-3 md:col-start-2 md:row-span-4 md:row-start-1 md:mt-0 md:self-center">
@@ -101,7 +97,7 @@ export function Cover({ data, period, detectorRef, textRefs, onEnter }: Props) {
           <Detector readings={readings} fired={fired} active={active} onActive={setActive} className="h-full w-full" />
           {!fired && (
             <div className="num absolute inset-0 flex items-center justify-center text-[12px] text-ink-muted">
-              {error ? '无事例' : `${loaded}/${total}`}
+              {error ? '暂无读数' : `${loaded}/${total}`}
             </div>
           )}
         </div>

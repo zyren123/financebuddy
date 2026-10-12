@@ -25,6 +25,12 @@ describe('cover copy', () => {
     expect(headlineOf([r('XLE/SPY', -2)])).toBe('SPY领先')
   })
 
+  it('零读数明确为零且不生成空名单', () => {
+    expect(headlineOf([r('VTV/QQQ', 0), r('SCHD/QQQ', 0)])).toBe('比值持平')
+    expect(leadOf([r('VTV/QQQ', 0), r('SCHD/QQQ', 0)], 35)).toBe('相对 QQQ，VTV、SCHD 为零。')
+    expect(leadOf([r('VTV/QQQ', 1), r('SCHD/QQQ', 0)], 35)).toBe('相对 QQQ，VTV 为正，SCHD 为零。')
+  })
+
   it('没有读数时不生成结论', () => {
     expect(headlineOf([])).toBeNull()
   })

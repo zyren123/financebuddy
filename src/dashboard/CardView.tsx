@@ -19,11 +19,10 @@ function uniq(values: string[]): string[] {
 
 /** 缺数状态:一个空槽位加一张说明标签,而不是红字报错 */
 function Status({ loading, error }: { loading: boolean; error: Error | null }) {
-  if (!error && !loading) return null
   return (
-    <div className="flex h-full items-center justify-center p-4">
+    <div role="status" className="flex h-full items-center justify-center p-4">
       <div className="max-w-[34ch] border border-dashed border-copper-dim px-4 py-3 text-center text-[12px] leading-relaxed text-ink-muted">
-        {error ? describeDataError(error) : '取数中…免费配额每分钟 8 次,多标的会分批点亮'}
+        {error ? describeDataError(error) : loading ? '正在读取日线行情…免费配额每分钟 8 次，多 Ticker 将分批加载。' : '当前日线数据不足，暂时无法绘制图表。请稍后刷新重试。'}
       </div>
     </div>
   )

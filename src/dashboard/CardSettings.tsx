@@ -31,8 +31,8 @@ export function CardSettings({ card, onChange }: Props) {
 
       {card.kind === 'ratioRoc' && (
         <>
-          <div className="flex items-center gap-2">
-            <span className={labelCls}>ROC 周期</span>
+          <label className="flex items-center gap-2">
+            <span className={labelCls}>ROC 周期（日）</span>
             <input
               type="number"
               min={1}
@@ -40,7 +40,7 @@ export function CardSettings({ card, onChange }: Props) {
               value={card.rocPeriod}
               onChange={(e) => onChange({ rocPeriod: clampInt(e.target.value, 1) } as Partial<CardConfig>)}
             />
-          </div>
+          </label>
           <RatioPairsEditor card={card} onChange={onChange} />
         </>
       )}
@@ -70,7 +70,7 @@ export function CardSettings({ card, onChange }: Props) {
             </select>
           </label>
           <label className="flex items-center gap-2">
-            <span className={labelCls}>周期</span>
+            <span className={labelCls}>周期（日）</span>
             <input
               type="number"
               min={1}
@@ -83,12 +83,13 @@ export function CardSettings({ card, onChange }: Props) {
       )}
 
       <div className="flex items-center gap-2">
-        <span className={labelCls}>默认范围</span>
-        <div className="num flex border border-field">
+        <span className={labelCls}>默认时间区间</span>
+        <div className="num flex border border-field" role="group" aria-label="默认时间区间">
           {RANGE_OPTIONS.map((opt) => (
             <button
               key={opt.key}
               type="button"
+              aria-pressed={card.range === opt.key}
               className={`px-2 py-1 ${card.range === opt.key ? 'bg-ink text-void' : 'text-ink-muted hover:text-ink'}`}
               onClick={() => onChange({ range: opt.key as RangeKey } as Partial<CardConfig>)}
             >
@@ -111,40 +112,46 @@ function RatioPairsEditor({ card, onChange }: { card: RatioRocCardConfig; onChan
   return (
     <div className="flex flex-col gap-1">
       <span className={labelCls}>
-        Ratio 对(分子/分母,最多 {MAX_SERIES_PER_CARD} 条)
+        Ratio（分子/分母，最多 {MAX_SERIES_PER_CARD} 条）
       </span>
       {pairs.map((p, i) => (
         <div key={i} className="flex items-center gap-1">
-          <input
-            className={`${inputCls} w-16`}
-            value={p.numerator}
-            spellCheck={false}
-            onChange={(e) =>
-              setPairs(
-                pairs.map((q, j) =>
-                  j === i ? { ...q, numerator: e.target.value.toUpperCase().trim() } : q,
-                ),
-              )
-            }
-          />
+          <label className="flex flex-col gap-1 text-[11px] text-ink-muted">
+            <span>分子 {i + 1}</span>
+            <input
+              className={`${inputCls} w-16`}
+              value={p.numerator}
+              spellCheck={false}
+              onChange={(e) =>
+                setPairs(
+                  pairs.map((q, j) =>
+                    j === i ? { ...q, numerator: e.target.value.toUpperCase().trim() } : q,
+                  ),
+                )
+              }
+            />
+          </label>
           <span className="text-ink-muted">/</span>
-          <input
-            className={`${inputCls} w-16`}
-            value={p.denominator}
-            spellCheck={false}
-            onChange={(e) =>
-              setPairs(
-                pairs.map((q, j) =>
-                  j === i ? { ...q, denominator: e.target.value.toUpperCase().trim() } : q,
-                ),
-              )
-            }
-          />
+          <label className="flex flex-col gap-1 text-[11px] text-ink-muted">
+            <span>分母 {i + 1}</span>
+            <input
+              className={`${inputCls} w-16`}
+              value={p.denominator}
+              spellCheck={false}
+              onChange={(e) =>
+                setPairs(
+                  pairs.map((q, j) =>
+                    j === i ? { ...q, denominator: e.target.value.toUpperCase().trim() } : q,
+                  ),
+                )
+              }
+            />
+          </label>
           <button
             type="button"
             className="p-1 text-ink-muted hover:text-down"
             onClick={() => setPairs(pairs.filter((_, j) => j !== i))}
-            aria-label="删除此 Ratio"
+            aria-label={`删除 Ratio ${i + 1} ${p.numerator}/${p.denominator}`}
           >
             <CloseIcon />
           </button>
