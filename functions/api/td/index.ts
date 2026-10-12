@@ -1,5 +1,5 @@
-import { readEdgeEnv } from '../../../server/edgeEnv'
-import { proxyTwelveData, upstreamFromEnv } from '../../../server/tdProxy'
+import { readEdgeEnv } from '../../../server/edgeEnv.js'
+import { proxyTwelveData, upstreamFromEnv } from '../../../server/tdProxy.js'
 
 /**
  * 腾讯 EdgeOne Pages 边缘函数适配(核心逻辑在 server/tdProxy.ts)。

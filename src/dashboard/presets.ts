@@ -1,5 +1,5 @@
 import type { Layout, LayoutItem } from 'react-grid-layout'
-import type { CardConfig } from './types'
+import type { CardConfig } from './types.js'
 
 /** 布局预设(Q10 结论):四宫格 / 自上而下 */
 export type PresetKey = 'quad' | 'flow'

@@ -1,0 +1,28 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7.0.1
+      - uses: actions/setup-node@v7.1.0
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            vps/td-cache/package-lock.json
+      - run: npm ci
+      # typecheck 覆盖 vps/td-cache/main.ts,它的 redis 依赖装在子目录里
+      - run: npm ci
+        working-directory: vps/td-cache
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run build
+      - run: npm run build
+        working-directory: vps/td-cache

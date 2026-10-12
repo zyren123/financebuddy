@@ -1,6 +1,6 @@
 import type { Layout } from 'react-grid-layout'
 import { ensureLayout, MIN_SIZE } from './presets.js'
-import type { CardConfig, DashboardState, IndicatorKind } from './types'
+import type { CardConfig, DashboardState, IndicatorKind } from './types.js'
 
 /**
  * Dashboard 布局的纯校验与规整(schema):定义什么是合法的 Card / DashboardState。

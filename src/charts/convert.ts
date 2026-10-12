@@ -1,7 +1,7 @@
-import type { Bar } from '../data/types'
-import type { Point } from '../indicators/series'
+import type { Bar } from '../data/types.js'
+import type { Point } from '../indicators/series.js'
 import type { CandlestickData, HistogramData, LineData, UTCTimestamp } from 'lightweight-charts'
-import { CHART_COLORS, withAlpha } from './theme'
+import { CHART_COLORS, withAlpha } from './theme.js'
 
 /** 'YYYY-MM-DD' → UTC 秒(lightweight-charts 的 time) */
 export function dateToTs(d: string): UTCTimestamp {

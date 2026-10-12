@@ -1,5 +1,5 @@
 import { readFile } from 'node:fs/promises'
-import { PUBLISHED_KEY, type LayoutStore } from './layoutApi'
+import { PUBLISHED_KEY, type LayoutStore } from './layoutApi.js'
 
 /**
  * 开发期 LayoutStore adapter:进程内存 + 首次读取时从 public/default-dashboard.json

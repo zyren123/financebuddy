@@ -2,7 +2,7 @@
  * 平台函数 → VPS 的转发(ADR-0004)。配了 TD_CACHE_URL + TD_CACHE_TOKEN 时,
  * /api/td 与 /api/layout 都交给 VPS,口令走请求头,API key 与 Admin 口令只在 VPS。
  */
-import type { LayoutRequest, LayoutResult } from './layoutApi'
+import type { LayoutRequest, LayoutResult } from './layoutApi.js'
 
 export interface VpsRelay {
   baseUrl: string

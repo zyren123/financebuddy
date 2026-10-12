@@ -1,7 +1,7 @@
-import { handleLayoutRequest } from '../../../server/layoutApi'
-import type { LayoutRequest, LayoutResult, LayoutStore } from '../../../server/layoutApi'
-import { readEdgeEnv } from '../../../server/edgeEnv'
-import { relayLayoutRequest, vpsRelayFromEnv } from '../../../server/vpsRelay'
+import { handleLayoutRequest } from '../../../server/layoutApi.js'
+import type { LayoutRequest, LayoutResult, LayoutStore } from '../../../server/layoutApi.js'
+import { readEdgeEnv } from '../../../server/edgeEnv.js'
+import { relayLayoutRequest, vpsRelayFromEnv } from '../../../server/vpsRelay.js'
 
 /**
  * 腾讯 EdgeOne Pages 边缘函数适配(核心逻辑在 server/layoutApi.ts)。
