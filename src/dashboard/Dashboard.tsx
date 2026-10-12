@@ -61,9 +61,50 @@ export function Dashboard({ admin, dashboard, readings, headerRef, emblemRef }: 
 
   const [loginOpen, setLoginOpen] = useState(false)
   const [password, setPassword] = useState('')
+  const [loginState, setLoginState] = useState<'idle' | 'checking' | 'failed'>('idle')
+  const [actionMessage, setActionMessage] = useState('')
   // Browse State:浏览态的时间区间偏好,会话内存,刷新即回(不属于布局,不可发布)
   const [rangeOverride, setRangeOverride] = useState<Record<string, RangeKey>>({})
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const loginRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!loginOpen) return
+    const dialog = loginRef.current
+    if (!dialog) return
+    const previousFocus = document.activeElement
+    const controls = () => Array.from(dialog.querySelectorAll<HTMLElement>('input:not(:disabled), button:not(:disabled)'))
+    controls()[0]?.focus()
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault()
+        setLoginOpen(false)
+      }
+      if (event.key === 'Tab') {
+        const items = controls()
+        const first = items[0]
+        const last = items.at(-1)
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault()
+          last?.focus()
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault()
+          first?.focus()
+        }
+      }
+    }
+    const containFocus = (event: FocusEvent) => {
+      if (event.target instanceof Node && !dialog.contains(event.target)) controls()[0]?.focus()
+    }
+    document.addEventListener('keydown', onKey)
+    document.addEventListener('focusin', containFocus)
+    return () => {
+      document.removeEventListener('keydown', onKey)
+      document.removeEventListener('focusin', containFocus)
+      if (previousFocus instanceof HTMLElement && previousFocus !== document.body && previousFocus.isConnected) previousFocus.focus()
+      else document.querySelector<HTMLElement>('a[href="#top"]')?.focus()
+    }
+  }, [loginOpen])
 
   // #admin 入口:命中即弹口令框,并清掉 hash(不留痕)
   useEffect(() => {
@@ -71,6 +112,7 @@ export function Dashboard({ admin, dashboard, readings, headerRef, emblemRef }: 
       if (window.location.hash === '#admin') {
         window.history.replaceState(null, '', window.location.pathname + window.location.search)
         setLoginOpen(true)
+        setLoginState('idle')
       }
     }
     check()
@@ -93,18 +135,25 @@ export function Dashboard({ admin, dashboard, readings, headerRef, emblemRef }: 
   }, [canEdit, editing, beginEditing, finishEditing])
 
   const onLogin = useCallback(async () => {
+    if (loginState === 'checking' || !password) return
+    setLoginState('checking')
     const ok = await enter(password)
-    setPassword('')
-    setLoginOpen(false)
-    if (!ok) alert('口令错误')
-  }, [enter, password])
+    if (ok) {
+      setPassword('')
+      setLoginOpen(false)
+      setLoginState('idle')
+    } else {
+      setLoginState('failed')
+    }
+  }, [enter, password, loginState])
 
   const onImportFile = useCallback(
     async (file: File) => {
       try {
         importJson(await file.text())
+        setActionMessage('已导入草稿。发布后才对访客生效。')
       } catch (err) {
-        alert(err instanceof Error ? err.message : '导入失败')
+        setActionMessage(`导入失败。请使用 FinanceBuddy 导出的 JSON 布局文件重试。${err instanceof Error ? ` ${err.message}` : ''}`)
       }
     },
     [importJson],
@@ -113,17 +162,19 @@ export function Dashboard({ admin, dashboard, readings, headerRef, emblemRef }: 
   const onPublish = useCallback(async () => {
     try {
       await publish()
+      setActionMessage('布局已发布，对所有访客生效。')
     } catch (err) {
-      alert(err instanceof Error ? err.message : '发布失败')
+      setActionMessage(`发布失败，草稿仍可继续编辑。请检查网络和管理员口令后重试。${err instanceof Error ? ` ${err.message}` : ''}`)
     }
   }, [publish])
 
   const onRestore = useCallback(async () => {
-    if (!confirm('恢复上一版?当前 Published 将被替换(它本身会成为新的上一版)。')) return
+    if (!confirm('恢复上一版已发布布局？所有访客将看到上一版，当前已发布布局将成为新的上一版。未发布草稿将被清除。')) return
     try {
       await restorePrevious()
+      setActionMessage('已恢复上一版布局，对所有访客生效。')
     } catch (err) {
-      alert(err instanceof Error ? err.message : '恢复失败')
+      setActionMessage(`恢复上一版失败，请稍后重试。${err instanceof Error ? ` ${err.message}` : ''}`)
     }
   }, [restorePrevious])
 
@@ -142,7 +193,7 @@ export function Dashboard({ admin, dashboard, readings, headerRef, emblemRef }: 
         ref={headerRef}
         className="sticky top-0 z-20 border-b border-edge bg-void"
       >
-        <div className="mx-auto flex max-w-[1440px] items-center gap-3 px-5 py-2.5 md:gap-5 md:px-12">
+        <div className="mx-auto flex max-w-[1440px] flex-wrap items-center gap-3 px-5 py-2.5 md:gap-5 md:px-12 lg:flex-nowrap">
           <a href="#top" className="flex shrink-0 items-center gap-2.5" aria-label="回到封面">
             <div ref={emblemRef} className="h-7 w-7 opacity-0">
               <Detector readings={readings.readings} fired active={null} compact className="h-full w-full" />
@@ -152,9 +203,9 @@ export function Dashboard({ admin, dashboard, readings, headerRef, emblemRef }: 
             </span>
           </a>
 
-          <ul className="num flex min-w-0 items-baseline gap-x-4 overflow-x-auto text-[12px] md:gap-x-6" aria-label="当前读数">
+          <ul className="num flex min-w-0 flex-1 items-baseline gap-x-4 overflow-x-auto text-[12px] md:gap-x-6" aria-label="当前读数">
             {readings.readings.map((r, i) => (
-              <li key={r.label} className="flex shrink-0 items-baseline gap-1.5">
+              <li key={r.label} className="flex shrink-0 items-baseline gap-1.5" aria-label={`${r.label} ${formatSigned(r.value)}%`}>
                 <span aria-hidden className="h-[2px] w-3 self-center" style={{ backgroundColor: CHART_COLORS.series[i] }} />
                 <span className="hidden text-ink-muted lg:inline">{r.label}</span>
                 <span className="text-ink">{formatSigned(r.value)}%</span>
@@ -162,7 +213,7 @@ export function Dashboard({ admin, dashboard, readings, headerRef, emblemRef }: 
             ))}
           </ul>
 
-          <div className="ml-auto flex shrink-0 items-center gap-2">
+          <div className={`ml-auto flex shrink-0 flex-wrap items-center gap-2 ${isAdmin ? 'md:w-full md:justify-end lg:w-auto' : ''}`}>
             {canEdit && !editing && (
               <button type="button" className={btn} onClick={beginEditing} disabled={state == null}>
                 <PencilIcon /> 编辑布局(E)
@@ -176,10 +227,10 @@ export function Dashboard({ admin, dashboard, readings, headerRef, emblemRef }: 
                   disabled={!dirty || publishing}
                   onClick={() => void onPublish()}
                 >
-                  {publishing ? '发布中…' : '发布'}
+                  {publishing ? '正在发布布局…' : '发布布局'}
                 </button>
                 <button type="button" className={btn} onClick={finishEditing}>
-                  <CheckIcon /> 完成编辑
+                  <CheckIcon /> 返回浏览
                 </button>
               </>
             )}
@@ -198,7 +249,7 @@ export function Dashboard({ admin, dashboard, readings, headerRef, emblemRef }: 
 
         {canEdit && editing && (
           <div className="mx-auto flex max-w-[1440px] flex-wrap items-center gap-2 border-t border-edge px-5 py-2 md:px-12">
-            <span className="num mr-1 text-[11px] text-copper">草稿</span>
+            <span className="mr-1 text-[11px] text-ink-muted">草稿 · 发布后对访客生效</span>
             {(
               [
                 { key: 'quad', label: '四宫格' },
@@ -211,13 +262,13 @@ export function Dashboard({ admin, dashboard, readings, headerRef, emblemRef }: 
             ))}
             <span className="mx-1 h-4 w-px bg-edge" aria-hidden />
             <button type="button" className={btn} onClick={() => addCard(cardFactories.candle)}>
-              <PlusIcon /> K 线卡
+              <PlusIcon /> 添加 K 线卡
             </button>
             <button type="button" className={btn} onClick={() => addCard(cardFactories.ratioRoc)}>
-              <PlusIcon /> Ratio ROC 卡
+              <PlusIcon /> 添加 Ratio ROC 卡
             </button>
             <button type="button" className={btn} onClick={() => addCard(cardFactories.indicator)}>
-              <PlusIcon /> 指标卡
+              <PlusIcon /> 添加指标卡
             </button>
             <div className="ml-auto flex flex-wrap items-center gap-2">
               <button
@@ -255,9 +306,13 @@ export function Dashboard({ admin, dashboard, readings, headerRef, emblemRef }: 
         <div className="mb-8 flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2 md:mb-10">
           <h2 className="font-display text-[clamp(2rem,4vw,3rem)] leading-none text-ink">核对图表</h2>
           <p className="num text-[11px] text-ink-faint">
-            Twelve Data 日线{readings.date ? ` · 截至 ${readings.date}` : ''} · 指标在浏览器内计算
+            Twelve Data 日线{readings.date ? ` · 截至 ${readings.date}` : ''}
           </p>
         </div>
+
+        {actionMessage && <p role="status" className="mb-6 text-[13px] leading-relaxed text-ink-muted">{actionMessage}</p>}
+        {isAdmin && narrow && <p className="mb-6 text-[13px] text-ink-muted">布局编辑需使用桌面宽度。当前可浏览图表。</p>}
+        {ready && state?.cards.length === 0 && <p role="status" className="mb-6 text-[13px] text-ink-muted">当前布局没有卡片。{canEdit ? '进入编辑布局后添加卡片。' : '请等待管理员发布图表。'}</p>}
 
         {ready && state ? (
           <DashboardGrid
@@ -273,7 +328,7 @@ export function Dashboard({ admin, dashboard, readings, headerRef, emblemRef }: 
           />
         ) : (
           <div className="flex h-64 items-center justify-center">
-            <div className="border border-dashed border-copper-dim px-4 py-3 text-[12px] text-ink-muted">
+            <div role="status" className="border border-dashed border-copper-dim px-4 py-3 text-[12px] text-ink-muted">
               {loadFailed ? '布局服务暂时不可用,稍后刷新重试' : '正在载入布局…'}
             </div>
           </div>
@@ -286,6 +341,7 @@ export function Dashboard({ admin, dashboard, readings, headerRef, emblemRef }: 
           onClick={() => setLoginOpen(false)}
         >
           <div
+            ref={loginRef}
             role="dialog"
             aria-modal="true"
             aria-labelledby="login-title"
@@ -295,25 +351,28 @@ export function Dashboard({ admin, dashboard, readings, headerRef, emblemRef }: 
             <div id="login-title" className="text-[15px] font-medium text-ink">
               管理员登录
             </div>
+            <label htmlFor="admin-password" className="block text-[13px] text-ink-muted">发布口令</label>
             <input
-              autoFocus
+              id="admin-password"
               type="password"
               className={inputCls}
-              placeholder="发布口令"
-              aria-label="发布口令"
+              autoComplete="current-password"
+              disabled={loginState === 'checking'}
+              aria-invalid={loginState === 'failed'}
+              aria-describedby={loginState === 'failed' ? 'login-error' : undefined}
               value={password}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(e) => { setPassword(e.target.value); setLoginState('idle') }}
               onKeyDown={(e) => {
                 if (e.key === 'Enter') void onLogin()
-                if (e.key === 'Escape') setLoginOpen(false)
               }}
             />
+            {loginState === 'failed' && <p id="login-error" role="alert" className="text-[13px] leading-relaxed text-ink-muted">未能验证口令。请检查口令和网络连接后重试。</p>}
             <div className="flex justify-end gap-2">
               <button type="button" className={btn} onClick={() => setLoginOpen(false)}>
                 取消
               </button>
-              <button type="button" className={btnPrimary} onClick={() => void onLogin()}>
-                登录
+              <button type="button" className={btnPrimary} disabled={!password || loginState === 'checking'} onClick={() => void onLogin()}>
+                {loginState === 'checking' ? '正在验证口令…' : '登录'}
               </button>
             </div>
           </div>

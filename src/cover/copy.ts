@@ -19,6 +19,7 @@ export function sharedDenominator(readings: RatioReading[]): string | null {
 export function headlineOf(readings: RatioReading[]): string | null {
   const v = verdictOf(readings)
   if (!v) return null
+  if (readings.every((r) => r.value === 0)) return '比值持平'
   if (v === 'mixed') return '风格分化'
   const den = sharedDenominator(readings)
   const growthDen = den != null && GROWTH_BENCHMARKS.has(den)
@@ -38,6 +39,8 @@ export function leadOf(readings: RatioReading[], period: number): string | null 
     return `${names} ${vs}的 ${period} 日比值动量全部为${v === 'growth' ? '负' : '正'}。`
   }
   const pos = readings.filter((r) => r.value > 0).map(name).join('、')
-  const neg = readings.filter((r) => r.value <= 0).map(name).join('、')
-  return `${den ? `相对 ${den}，` : ""}${pos} 为正，${neg} 为负。`
+  const neg = readings.filter((r) => r.value < 0).map(name).join('、')
+  const zero = readings.filter((r) => r.value === 0).map(name).join('、')
+  const parts = [pos && `${pos} 为正`, neg && `${neg} 为负`, zero && `${zero} 为零`].filter(Boolean)
+  return `${den ? `相对 ${den}，` : ''}${parts.join('，')}。`
 }
