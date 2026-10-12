@@ -1,5 +1,7 @@
 // 端到端冒烟:用系统 Chrome 驱动真实页面(本机 Playwright 自带 chromium 损坏,见交接记录)
-// 前置:npm run dev 已在 http://localhost:5173 运行;可选 env ADMIN_TOKEN 覆盖 dev 缺省口令。
+// 前置:npm run dev 已在 http://localhost:5173 运行,且是刚启动的(dev 布局存在内存里,上一轮发布会残留);
+// 可选 env ADMIN_TOKEN 覆盖 dev 缺省口令。
+// /api/td 一律拦截返回合成日线:每个全新浏览器都会全量拉取,不拦截一次运行就烧掉一批 credit。
 import puppeteer from 'puppeteer-core'
 
 const CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
@@ -22,6 +24,32 @@ const findBtn = (page, text) =>
 
 const waitGrid = (page) => page.waitForSelector('.react-grid-item', { timeout: 90_000 })
 
+const SYNTHETIC_BARS = Array.from({ length: 900 }, (_, i) => {
+  const datetime = new Date(Date.UTC(2026, 9, 9) - i * 86_400_000).toISOString().slice(0, 10)
+  const c = 100 + Math.sin(i / 9) * 5 + i * 0.01
+  return { datetime, open: String(c), high: String(c + 1), low: String(c - 1), close: String(c), volume: '1000' }
+})
+const SYNTHETIC_BODY = JSON.stringify({ meta: {}, values: SYNTHETIC_BARS, status: 'ok' })
+
+const MIN_CARD_WIDTH_PX = 300
+const cardWidths = (page) =>
+  page.$$eval('.react-grid-item', (els) => els.map((el) => Math.round(el.getBoundingClientRect().width)))
+
+const openPage = async () => {
+  const page = await browser.newPage()
+  watch(page)
+  await page.setViewport({ width: 1600, height: 1000 })
+  await page.setRequestInterception(true)
+  page.on('request', (req) => {
+    if (new globalThis.URL(req.url()).pathname === '/api/td') {
+      req.respond({ status: 200, contentType: 'application/json', body: SYNTHETIC_BODY })
+    } else {
+      req.continue()
+    }
+  })
+  return page
+}
+
 const browser = await puppeteer.launch({ executablePath: CHROME, headless: true })
 
 const jsErrors = []
@@ -41,9 +69,7 @@ const watch = (page) => {
 
 try {
   // ---- 访客视角(独立标签页 = 独立 sessionStorage)----
-  const page = await browser.newPage()
-  watch(page)
-  await page.setViewport({ width: 1600, height: 1000 })
+  const page = await openPage()
   await page.goto(URL, { waitUntil: 'networkidle2', timeout: 90_000 })
   try {
     await page.waitForSelector('canvas', { timeout: 90_000 })
@@ -169,6 +195,19 @@ try {
   const gridItems4 = await page.$$eval('.react-grid-item', (els) => els.length)
   check('添加卡片 → 4 张', gridItems4 === 4, `react-grid-item=${gridItems4}`)
 
+  // 回归(PR #7):完成编辑后网格渲染 Published,其回调曾抹掉 Draft 里新卡片的位置,再进编辑变成 1×1
+  const finishBtn = await findBtn(page, '完成编辑')
+  await finishBtn.asElement().click()
+  await sleep(600)
+  await page.keyboard.press('e')
+  await sleep(800)
+  const widthsAfterReenter = await cardWidths(page)
+  check(
+    '完成编辑再进入:新卡片保持原尺寸',
+    widthsAfterReenter.length === 4 && widthsAfterReenter.every((w) => w >= MIN_CARD_WIDTH_PX),
+    widthsAfterReenter.join(','),
+  )
+
   const publishBtn = await findBtn(page, '发布')
   await publishBtn.asElement().click()
   await sleep(1000)
@@ -179,13 +218,17 @@ try {
   check('发布后回到浏览态', gridAfterPublish === 4, `react-grid-item=${gridAfterPublish}`)
 
   // ---- 另一个访客(新标签页,独立 sessionStorage):发布已全局生效 ----
-  const page2 = await browser.newPage()
-  watch(page2)
-  await page2.setViewport({ width: 1600, height: 1000 })
+  const page2 = await openPage()
   await page2.goto(URL, { waitUntil: 'networkidle2', timeout: 90_000 })
   await waitGrid(page2)
   const gridItemsVisitor2 = await page2.$$eval('.react-grid-item', (els) => els.length)
   check('新访客看到已发布布局(4 张)', gridItemsVisitor2 === 4, `react-grid-item=${gridItemsVisitor2}`)
+  const visitor2Widths = await cardWidths(page2)
+  check(
+    '新访客看到的卡片都不是 1×1',
+    visitor2Widths.every((w) => w >= MIN_CARD_WIDTH_PX),
+    visitor2Widths.join(','),
+  )
   const visitor2EditBtn = await page2.evaluate(() =>
     [...document.querySelectorAll('button')].some((b) => b.textContent.includes('编辑布局')),
   )
@@ -202,8 +245,7 @@ try {
   check('恢复上一版 → 回到 3 张', gridAfterRestore === 3, `react-grid-item=${gridAfterRestore}`)
 
   // 再用 page2 验证恢复也是全局的
-  const page3 = await browser.newPage()
-  watch(page3)
+  const page3 = await openPage()
   await page3.goto(URL, { waitUntil: 'networkidle2', timeout: 90_000 })
   await waitGrid(page3)
   const gridItemsVisitor3 = await page3.$$eval('.react-grid-item', (els) => els.length)
