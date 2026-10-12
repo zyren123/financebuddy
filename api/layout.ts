@@ -1,8 +1,8 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { handleLayoutRequest } from '../server/layoutApi'
+import { handleLayoutRequest } from '../server/layoutApi.js'
 import type { LayoutRequest, LayoutResult, LayoutStore } from '../server/layoutApi'
-import { readBody } from '../server/readBody'
-import { relayLayoutRequest, vpsRelayFromEnv } from '../server/vpsRelay'
+import { readBody } from '../server/readBody.js'
+import { relayLayoutRequest, vpsRelayFromEnv } from '../server/vpsRelay.js'
 
 /**
  * Vercel 适配:/api/layout(GET 读 / PUT 发布 / POST verify|restore)。

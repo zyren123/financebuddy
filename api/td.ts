@@ -1,5 +1,5 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
-import { proxyTwelveData, upstreamFromEnv } from '../server/tdProxy'
+import { proxyTwelveData, upstreamFromEnv } from '../server/tdProxy.js'
 
 /** Vercel 适配:GET /api/td?endpoint=…(核心逻辑在 server/tdProxy.ts) */
 export default async function handler(req: VercelRequest, res: VercelResponse) {
