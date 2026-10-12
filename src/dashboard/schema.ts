@@ -1,4 +1,5 @@
 import type { Layout } from 'react-grid-layout'
+import { ensureLayout, MIN_SIZE } from './presets.js'
 import type { CardConfig, DashboardState, IndicatorKind } from './types'
 
 /**
@@ -52,15 +53,25 @@ function parseCard(v: unknown): CardConfig | null {
   return null
 }
 
-function parseLayout(v: unknown): Layout | null {
-  if (!Array.isArray(v)) return null
-  const items = v.filter(
+/**
+ * 布局项与卡片一一对应:剔除孤儿项与小于最小尺寸的项(网格给缺位卡片自动补的 1×1),
+ * 缺位的卡片由 ensureLayout 补到底部默认位。
+ */
+function parseLayout(v: unknown, cards: CardConfig[]): Layout {
+  const ids = new Set(cards.map((c) => c.id))
+  const items = (Array.isArray(v) ? v : []).filter(
     (item): item is { i: string; x: number; y: number; w: number; h: number } =>
       isRecord(item) &&
       typeof item.i === 'string' &&
-      [item.x, item.y, item.w, item.h].every((n) => typeof n === 'number'),
+      ids.has(item.i) &&
+      [item.x, item.y, item.w, item.h].every((n) => typeof n === 'number') &&
+      (item.w as number) >= MIN_SIZE.minW &&
+      (item.h as number) >= MIN_SIZE.minH,
   )
-  return items.map((item) => ({ ...item, minW: 3, minH: 4 }))
+  return ensureLayout(
+    cards,
+    items.map((item) => ({ ...item, ...MIN_SIZE })),
+  )
 }
 
 /** 严格校验并规整外来 JSON(服务端发布 / 导入文件 / 出厂兜底),坏数据返回 null */
@@ -68,6 +79,5 @@ export function validateDashboardState(v: unknown): DashboardState | null {
   if (!isRecord(v) || v.version !== 1 || !Array.isArray(v.cards)) return null
   const cards = v.cards.map(parseCard).filter((c): c is CardConfig => c !== null)
   if (cards.length === 0) return null
-  const layout = parseLayout(v.layout) ?? []
-  return { version: 1, cards, layout }
+  return { version: 1, cards, layout: parseLayout(v.layout, cards) }
 }

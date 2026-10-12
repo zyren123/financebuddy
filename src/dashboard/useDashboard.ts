@@ -143,13 +143,14 @@ export function useDashboard(adminToken: string | null) {
   // 否则拖拽连发的回调可能读不到已变更的 draft,dirty 永远置不上
   const setLayout = useCallback(
     (layout: Layout) => {
-      if (!draft) return
+      // 不在编辑时网格渲染的是 Published,它的回调写进 Draft 会抹掉 Draft 里新增卡片的位置
+      if (!draft || !editing) return
       // RGL 挂载/规整的空回调(内容等价)不算编辑
       if (JSON.stringify(draft.layout) === JSON.stringify(layout)) return
       setDraft({ ...draft, layout })
       setDirty(true)
     },
-    [draft],
+    [draft, editing],
   )
 
   /** 导入文件:校验后载入 Draft,发布才对访客生效 */
