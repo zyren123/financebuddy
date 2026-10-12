@@ -1,4 +1,4 @@
-import type { Bar } from '../data/types'
+import type { Bar } from '../data/types.js'
 
 /** 带日期的单值序列,一切指标(含 Ratio ROC)的统一输出格式 */
 export interface Point {

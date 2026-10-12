@@ -1,4 +1,4 @@
-import type { RangeKey } from '../charts/convert'
+import type { RangeKey } from '../charts/convert.js'
 import type { Layout } from 'react-grid-layout'
 
 export type IndicatorKind = 'rsi' | 'roc' | 'sma' | 'ema'

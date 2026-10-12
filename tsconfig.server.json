@@ -1,0 +1,20 @@
+{
+  // 服务端代码(Vercel / EdgeOne 函数、共享核心、VPS 服务)。module: nodenext 按 Node ESM 规则
+  // 检查 import,不带扩展名的相对 import 直接报错,对应 Vercel 运行时的 ERR_MODULE_NOT_FOUND
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": ["ES2022", "DOM"],
+    "module": "nodenext",
+    "moduleResolution": "nodenext",
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "verbatimModuleSyntax": true,
+    "isolatedModules": true,
+    "skipLibCheck": true,
+    "noEmit": true,
+    "types": ["node"]
+  },
+  "include": ["api", "server", "functions", "vps/td-cache/main.ts"],
+  "exclude": ["**/*.test.ts"]
+}

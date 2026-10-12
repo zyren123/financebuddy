@@ -1,9 +1,9 @@
 import { createHash, timingSafeEqual } from 'node:crypto'
 import { createServer, type IncomingMessage } from 'node:http'
 import { createClient } from 'redis'
-import { handleLayoutRequest, type LayoutStore } from '../../server/layoutApi'
-import { createMemorySnapshotStore, createTdCache, type Snapshot, type SnapshotStore } from '../../server/tdCache'
-import { VPS_TOKEN_HEADER } from '../../server/vpsRelay'
+import { handleLayoutRequest, type LayoutStore } from '../../server/layoutApi.js'
+import { createMemorySnapshotStore, createTdCache, type Snapshot, type SnapshotStore } from '../../server/tdCache.js'
+import { VPS_TOKEN_HEADER } from '../../server/vpsRelay.js'
 
 const { TWELVEDATA_API_KEY, TD_CACHE_TOKEN, ADMIN_TOKEN, REDIS_URL } = process.env
 const PORT = Number(process.env.PORT ?? 8787)

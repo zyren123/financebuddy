@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from '@vercel/node'
 import { handleLayoutRequest } from '../server/layoutApi.js'
-import type { LayoutRequest, LayoutResult, LayoutStore } from '../server/layoutApi'
+import type { LayoutRequest, LayoutResult, LayoutStore } from '../server/layoutApi.js'
 import { readBody } from '../server/readBody.js'
 import { relayLayoutRequest, vpsRelayFromEnv } from '../server/vpsRelay.js'
 
