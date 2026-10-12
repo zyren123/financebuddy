@@ -18,9 +18,11 @@ jobs:
             package-lock.json
             vps/td-cache/package-lock.json
       - run: npm ci
+      # typecheck 覆盖 vps/td-cache/main.ts,它的 redis 依赖装在子目录里
+      - run: npm ci
+        working-directory: vps/td-cache
       - run: npm run typecheck
       - run: npm test
       - run: npm run build
-      - name: Build VPS td-cache bundle
+      - run: npm run build
         working-directory: vps/td-cache
-        run: npm ci && npm run build
