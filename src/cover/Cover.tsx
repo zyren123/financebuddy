@@ -14,11 +14,12 @@ interface Props {
   period: number
   /** 滚动转场的两端:封面的大探测器 → 页头徽记(由 useCoverMorph 驱动) */
   detectorRef: RefObject<HTMLDivElement | null>
+  detectorSlotRef: RefObject<HTMLDivElement | null>
   textRefs: [RefObject<HTMLDivElement | null>, RefObject<HTMLDivElement | null>]
   onEnter: () => void
 }
 
-export function Cover({ data, period, detectorRef, textRefs, onEnter }: Props) {
+export function Cover({ data, period, detectorRef, detectorSlotRef, textRefs, onEnter }: Props) {
   const { readings, loaded, total, error, date } = data
   const [active, setActive] = useState<number | null>(null)
   const fired = readings.length > 0
@@ -93,13 +94,15 @@ export function Cover({ data, period, detectorRef, textRefs, onEnter }: Props) {
       </div>
 
       <figure className="relative order-2 m-0 mt-3 md:col-start-2 md:row-span-4 md:row-start-1 md:mt-0 md:self-center">
-        <div ref={detectorRef} className="relative z-30 mx-auto aspect-square w-[min(78vw,40svh)] md:w-full md:max-w-[780px]">
-          <Detector readings={readings} fired={fired} active={active} onActive={setActive} period={period} className="h-full w-full" />
-          {!fired && (
-            <div className="num absolute inset-0 flex items-center justify-center text-[12px] text-ink-muted">
-              {error ? '暂无读数' : `${loaded}/${total}`}
-            </div>
-          )}
+        <div ref={detectorSlotRef} className="relative mx-auto aspect-square w-[min(78vw,40svh)] md:w-full md:max-w-[780px]">
+          <div ref={detectorRef} className="detector-scene">
+            <Detector readings={readings} fired={fired} active={active} onActive={setActive} period={period} className="h-full w-full" />
+            {!fired && (
+              <div className="detector-details num absolute inset-0 flex items-center justify-center text-[12px] text-ink-muted">
+                {error ? '暂无读数' : `${loaded}/${total}`}
+              </div>
+            )}
+          </div>
         </div>
         <figcaption className="num mx-auto mt-2 flex max-w-[780px] flex-wrap justify-center gap-x-5 gap-y-1 text-[11px] text-ink-faint">
           <span>每环 {step}%</span>

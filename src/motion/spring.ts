@@ -2,6 +2,9 @@ export const springs = {
   feedback: { stiffness: 740, damping: 48 },
   selection: { stiffness: 560, damping: 43 },
   morph: { stiffness: 320, damping: 35 },
+  spatial: { stiffness: 480, damping: 42 },
+  detector: { stiffness: 420, damping: 32 },
+  node: { stiffness: 620, damping: 28 },
 } satisfies Record<string, { stiffness: number; damping: number }>
 
 export type SpringConfig = (typeof springs)[keyof typeof springs]

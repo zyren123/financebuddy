@@ -35,6 +35,7 @@ export default function App() {
 
   const coverRef = useRef<HTMLDivElement>(null)
   const detectorRef = useRef<HTMLDivElement>(null)
+  const detectorSlotRef = useRef<HTMLDivElement>(null)
   const textTopRef = useRef<HTMLDivElement>(null)
   const textBottomRef = useRef<HTMLDivElement>(null)
   const headerRef = useRef<HTMLElement>(null)
@@ -42,8 +43,7 @@ export default function App() {
   const texts = useMemo(() => [textTopRef, textBottomRef], [])
 
   useCoverMorph(
-    { cover: coverRef, detector: detectorRef, texts, emblem: emblemRef, header: headerRef },
-    dashboard.ready,
+    { cover: coverRef, origin: detectorSlotRef, detector: detectorRef, texts, emblem: emblemRef, header: headerRef },
   )
 
   const enterCharts = useCallback(() => {
@@ -57,6 +57,7 @@ export default function App() {
           data={readings}
           period={period}
           detectorRef={detectorRef}
+          detectorSlotRef={detectorSlotRef}
           textRefs={[textTopRef, textBottomRef]}
           onEnter={enterCharts}
         />

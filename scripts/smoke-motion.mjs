@@ -60,6 +60,10 @@ try {
   await desktop.screenshot({ path: `${out}/desktop.png` })
   await mobile.screenshot({ path: `${out}/mobile.png` })
   await desktop.bringToFront()
+  check('one SVG owns the cover and header states', await desktop.evaluate(() => {
+    window.motionScene = document.querySelector('.detector')
+    return document.querySelectorAll('.detector').length === 1
+  }))
 
   const hover = await desktop.$('.detector-control circle')
   const bounds = await hover.boundingBox()
@@ -67,6 +71,21 @@ try {
   await wait(650)
   check('node expands into a readout', await desktop.$eval('.detector-series', (el) => Number(el.querySelector('.detector-arrival > circle').getAttribute('r')) > 11.9 && Number(el.querySelector('.detector-arrival > g').getAttribute('opacity')) > 0.99))
   await desktop.screenshot({ path: `${out}/node-readout.png` })
+  await desktop.mouse.down()
+  await wait(100)
+  const compressed = await desktop.$eval('.detector-arrival > circle', (el) => Number(el.getAttribute('r')))
+  await desktop.screenshot({ path: `${out}/node-pressed.png` })
+  await desktop.mouse.up()
+  const release = await desktop.evaluate(async () => {
+    const node = document.querySelector('.detector-arrival > circle')
+    const radii = []
+    for (let i = 0; i < 40; i++) {
+      await new Promise(requestAnimationFrame)
+      radii.push(Number(node.getAttribute('r')))
+    }
+    return { maximum: Math.max(...radii), final: radii.at(-1), selected: document.querySelector('.detector-control').getAttribute('aria-pressed') }
+  })
+  check('press compresses the node and release has a bounded spring return', compressed < 11.5 && release.maximum > 12.03 && release.maximum < 12.5 && Math.abs(release.final - 12) < 0.02 && release.selected === 'true', { compressed, ...release })
   await desktop.mouse.move(30, 30)
   await wait(650)
   check('node collapses to the original circle', await desktop.$eval('.detector-series', (el) => Math.abs(Number(el.querySelector('.detector-arrival > circle').getAttribute('r')) - 9) < 0.01))
@@ -75,13 +94,40 @@ try {
   check('keyboard Escape clears selection', await desktop.$eval('.detector-control', (el) => el.getAttribute('aria-pressed') === 'false'))
   await desktop.evaluate(() => document.activeElement.blur())
 
+  await desktop.evaluate(() => window.scrollTo(0, document.querySelector('#charts').offsetTop * 0.6))
+  await wait(110)
+  await desktop.screenshot({ path: `${out}/desktop-transit.png` })
+  const reverse = await desktop.evaluate(async () => {
+    const scene = document.querySelector('.detector-scene')
+    const before = scene.getBoundingClientRect()
+    window.scrollTo(0, document.querySelector('#charts').offsetTop * 0.2)
+    await new Promise(requestAnimationFrame)
+    const after = scene.getBoundingClientRect()
+    return { same: window.motionScene === document.querySelector('.detector'), step: Math.hypot(after.x - before.x, after.y - before.y) }
+  })
+  check('reversing a partial transition preserves the SVG and its current position', reverse.same && reverse.step < 80, reverse)
+  await desktop.evaluate(() => window.scrollTo(0, 0))
+  await wait(700)
+
   await clickText(desktop, '进入图表')
   await wait(1100)
   check('shared detector lands in the header', await desktop.evaluate(() => {
-    const cover = document.querySelector('#top figure > div')
+    const scene = document.querySelector('.detector-scene')
     const emblem = document.querySelector('a[href="#top"] > div')
-    return cover.style.opacity === '0' && emblem.style.opacity === '1' && cover.inert
+    const actual = scene.getBoundingClientRect()
+    const expected = emblem.getBoundingClientRect()
+    return window.motionScene === document.querySelector('.detector') && scene.style.opacity === '1' && scene.inert && Math.abs(actual.x - expected.x) < 0.1 && Math.abs(actual.y - expected.y) < 0.1 && Math.abs(actual.width - expected.width) < 0.1
   }))
+  await desktop.screenshot({ path: `${out}/desktop-docked.png` })
+  await desktop.setViewport({ width: 1000, height: 800 })
+  await wait(700)
+  check('resizing keeps the same SVG aligned with the sticky header slot', await desktop.evaluate(() => {
+    const a = document.querySelector('.detector-scene').getBoundingClientRect()
+    const b = document.querySelector('a[href="#top"] > div').getBoundingClientRect()
+    return window.motionScene === document.querySelector('.detector') && Math.hypot(a.x - b.x, a.y - b.y) < 0.1 && Math.abs(a.width - b.width) < 0.1
+  }))
+  await desktop.setViewport({ width: 1440, height: 1000 })
+  await wait(700)
   await clickText(desktop, '编辑布局(E)')
   await wait(250)
   await desktop.evaluate(() => {
@@ -152,16 +198,41 @@ try {
   check('rapid range changes settle on the last selection', rapid.selected === 'true' && Math.abs(rapid.indicatorX - rapid.expectedX) < 0.1, rapid)
   await desktop.evaluate(() => document.querySelector('a[href="#top"]').click())
   await wait(1100)
-  check('reverse shared transition returns the detector', await desktop.evaluate(() => scrollY === 0 && document.querySelector('#top figure > div').style.opacity === '1'))
+  check('reverse shared transition returns the original SVG to its cover slot', await desktop.evaluate(() => {
+    const actual = document.querySelector('.detector-scene').getBoundingClientRect()
+    const expected = document.querySelector('#top figure > div').getBoundingClientRect()
+    return scrollY === 0 && window.motionScene === document.querySelector('.detector') && Math.hypot(actual.x - expected.x, actual.y - expected.y) < 0.1 && Math.abs(actual.width - expected.width) < 0.1
+  }))
 
   const touchNode = await mobile.$('.detector-control circle')
   await mobile.bringToFront()
   await touchNode.tap()
   await wait(650)
   check('touch selects a node', await mobile.$eval('.detector-control', (el) => el.getAttribute('aria-pressed') === 'true'))
+  await mobile.screenshot({ path: `${out}/mobile-readout.png` })
   await touchNode.tap()
   await wait(650)
   check('second touch collapses the node', await mobile.$eval('.detector-control', (el) => el.getAttribute('aria-pressed') === 'false'))
+  const touchBounds = await touchNode.boundingBox()
+  const touchX = touchBounds.x + touchBounds.width / 2
+  const touchY = touchBounds.y + touchBounds.height / 2
+  await mobile.touchscreen.touchStart(touchX, touchY)
+  await wait(100)
+  check('touch receives pressure feedback before selection', await mobile.$eval('.detector-arrival > circle', (el) => Number(el.getAttribute('r')) < 8.7))
+  await mobile.touchscreen.touchMove(touchX, touchY - 90)
+  await mobile.touchscreen.touchEnd()
+  await wait(650)
+  check('vertical touch movement scrolls the page and cancels node activation', await mobile.evaluate(() => scrollY > 0 && document.querySelector('.detector-control').getAttribute('aria-pressed') === 'false'))
+  await mobile.evaluate(() => window.scrollTo(0, 0))
+  await wait(700)
+  await clickText(mobile, '进入图表')
+  await wait(1200)
+  check('touch layout docks the original scene exactly', await mobile.evaluate(() => {
+    const a = document.querySelector('.detector-scene').getBoundingClientRect()
+    const b = document.querySelector('a[href="#top"] > div').getBoundingClientRect()
+    return document.querySelectorAll('.detector').length === 1 && Math.hypot(a.x - b.x, a.y - b.y) < 0.1 && Math.abs(a.width - b.width) < 0.1
+  }))
+  await mobile.screenshot({ path: `${out}/mobile-docked.png` })
 
   const reduced = await open({ reduced: true })
   await reduced.$eval('.detector-control', (el) => el.focus())

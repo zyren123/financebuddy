@@ -134,14 +134,25 @@ button:disabled { cursor: default; }
 .detector-arrival { opacity: 0; }
 .fired .detector-arrival { animation: node-arrive 200ms ease-out both; }
 @keyframes node-arrive { from { opacity: 0; } to { opacity: 1; } }
-.detector-control { cursor: pointer; }
+.detector-scene {
+  position: fixed;
+  inset: 0 auto auto 0;
+  width: 1000px;
+  height: 1000px;
+  z-index: 30;
+  visibility: hidden;
+  transform-origin: center;
+}
+.detector-control { cursor: pointer; touch-action: pan-y; -webkit-tap-highlight-color: transparent; outline: none; }
 .detector-control:focus-visible { outline: none; }
 .detector-control:focus-visible > circle { stroke: var(--color-copper); stroke-width: 2; stroke-dasharray: 3 5; }
 .detector-details { opacity: var(--detector-detail, 1); }
-.detector:not(.detector-compact) .track { stroke-width: calc(var(--track-width, 3.5px) + var(--detector-weight, 0) * 24.5px); }
-.detector:not(.detector-compact) .detector-ring { stroke-width: calc(1.25px + var(--detector-weight, 0) * 4.75px); }
-.detector:not(.detector-compact) .detector-vertex { r: calc(5px + var(--detector-weight, 0) * 17px); }
-.detector-compact .track { transition: none; stroke-dashoffset: 0; }
+.detector-hardware-detail { opacity: var(--detector-detail, 1); }
+.detector-perimeter { stroke-width: calc(1.25px * var(--detector-cover-stroke, 1) + 6px * var(--detector-dock-stroke, 0)); }
+.detector-series { opacity: calc(var(--series-opacity, 1) + (1 - var(--series-opacity, 1)) * var(--detector-weight, 0)); }
+.detector .track { stroke-width: calc(var(--track-width, 3.5px) * var(--detector-cover-stroke, 1) + 28px * var(--detector-dock-stroke, 0)); }
+.detector .detector-ring { stroke-width: calc(1.25px * var(--detector-cover-stroke, 1) + 6px * var(--detector-dock-stroke, 0)); }
+.detector .detector-vertex { r: calc(5px * var(--detector-cover-stroke, 1) + 22px * var(--detector-dock-stroke, 0)); }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; }

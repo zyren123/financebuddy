@@ -2,7 +2,6 @@ import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react
 import type { RefObject } from 'react'
 import type { RangeKey } from '../charts/convert'
 import { CHART_COLORS } from '../charts/theme'
-import { Detector } from '../cover/Detector'
 import type { RatioReadings } from '../data/useRatioReadings'
 import { MarketOverview } from '../market/MarketOverview'
 import { formatSigned } from '../ui/CountUp'
@@ -221,9 +220,7 @@ export function Dashboard({ admin, dashboard, readings, headerRef, emblemRef }: 
             event.preventDefault()
             window.scrollTo({ top: 0, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth' })
           }}>
-            <div ref={emblemRef} className="h-7 w-7 opacity-0">
-              <Detector readings={readings.readings} fired active={null} compact className="h-full w-full" />
-            </div>
+            <div ref={emblemRef} className="h-7 w-7" aria-hidden="true" />
             <span className="num hidden text-[12px] font-semibold tracking-[0.06em] text-ink sm:inline">
               FinanceBuddy
             </span>
