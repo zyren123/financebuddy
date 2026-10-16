@@ -7,7 +7,7 @@ import { handleLayoutRequest } from './server/layoutApi'
 import { createDevLayoutStore } from './server/devLayoutStore'
 import { readBody } from './server/readBody'
 import { relayLayoutRequest, vpsRelayFromEnv } from './server/vpsRelay'
-import { handleMarketRequest } from './server/marketData'
+import { proxyMarketRequest } from './server/marketProxy'
 import { createMemorySnapshotStore, createTdCache } from './server/tdCache'
 
 // 开发期有 API_KEY 时运行当前版本的共享行情缓存,避免依赖尚未部署的 VPS 版本。
@@ -24,7 +24,7 @@ export default defineConfig(({ mode }) => {
     TD_CACHE_TOKEN: env.TD_CACHE_TOKEN,
   })
   const adminToken = env.ADMIN_TOKEN || 'dev-admin-token' // 注意 ||:空串(照抄 .env.example 未填)也要落到缺省
-  const layoutRelay = vpsRelayFromEnv(env)
+  const relay = vpsRelayFromEnv(env)
 
   return {
     server: {
@@ -44,7 +44,7 @@ export default defineConfig(({ mode }) => {
               return
             }
             void (async () => {
-              const result = await handleMarketRequest(new Request(new URL(req.url, 'http://localhost'), { method: req.method ?? 'GET' }))
+              const result = await proxyMarketRequest(new Request(new URL(req.url, 'http://localhost'), { method: req.method ?? 'GET' }), relay)
               res.statusCode = result.status
               result.headers.forEach((value, key) => res.setHeader(key, value))
               res.end(await result.text())
@@ -97,8 +97,8 @@ export default defineConfig(({ mode }) => {
                 body: await readBody(req),
                 adminToken: Array.isArray(headerToken) ? (headerToken[0] ?? null) : (headerToken ?? null),
               }
-              const result = layoutRelay
-                ? await relayLayoutRequest(layoutRelay, layoutRequest)
+              const result = relay
+                ? await relayLayoutRequest(relay, layoutRequest)
                 : await handleLayoutRequest(layoutRequest, store, adminToken)
               res.statusCode = result.status
               res.setHeader('content-type', 'application/json')

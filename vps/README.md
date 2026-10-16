@@ -89,7 +89,7 @@ IMAGE_TAG=<可选,提交 SHA;不设为 latest>
 - `TD_CACHE_URL=https://api.zenode.duckdns.org`
 - `TD_CACHE_TOKEN=<同上>`
 
-然后重新部署。`/api/td` 与 `/api/layout` 都会转发到 VPS,Admin 登录用 VPS 上的 `ADMIN_TOKEN`。首次切换后布局是"未发布",在 Admin 里发布一次即可。删掉这两个变量即回到直连 Twelve Data 与平台 KV(仍需 `TWELVEDATA_API_KEY`、`ADMIN_TOKEN` 与 KV)。
+然后重新部署。`/api/td`、`/api/layout` 与 `/api/market` 都会转发到 VPS,Admin 登录用 VPS 上的 `ADMIN_TOKEN`。美股指标复用 VPS 进程内缓存，价格与估值六小时、CNN 三十分钟；该缓存不写入 Redis，服务重启后清空。首次切换后布局是"未发布",在 Admin 里发布一次即可。删掉这两个变量即回到直连来源与平台 KV(仍需 `TWELVEDATA_API_KEY`、`ADMIN_TOKEN` 与 KV)。
 
 ## 运维
 

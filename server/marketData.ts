@@ -67,6 +67,16 @@ function upstreamUrl(feed: MarketFeed): string {
 
 type Result = { status: number; body: string }
 
+export function marketFeedFromRequest(request: Request): MarketFeed | Response {
+  if (request.method !== 'GET') return Response.json({ error: 'method not allowed' }, { status: 405, headers: { allow: 'GET' } })
+  const url = new URL(request.url)
+  const feed = MARKET_FEEDS.find((item) => item === url.searchParams.get('feed'))
+  if (!feed || [...url.searchParams.keys()].some((key) => key !== 'feed') || url.searchParams.getAll('feed').length !== 1) {
+    return Response.json({ error: 'unknown market feed' }, { status: 400 })
+  }
+  return feed
+}
+
 export function createMarketApi(fetcher: typeof fetch = fetch, now: () => number = Date.now) {
   const cache = new Map<MarketFeed, { result: Result; expires: number }>()
   const pending = new Map<MarketFeed, Promise<Result>>()
@@ -100,12 +110,8 @@ export function createMarketApi(fetcher: typeof fetch = fetch, now: () => number
   }
 
   return async function handle(request: Request): Promise<Response> {
-    if (request.method !== 'GET') return Response.json({ error: 'method not allowed' }, { status: 405, headers: { allow: 'GET' } })
-    const url = new URL(request.url)
-    const feed = MARKET_FEEDS.find((item) => item === url.searchParams.get('feed'))
-    if (!feed || [...url.searchParams.keys()].some((key) => key !== 'feed') || url.searchParams.getAll('feed').length !== 1) {
-      return Response.json({ error: 'unknown market feed' }, { status: 400 })
-    }
+    const feed = marketFeedFromRequest(request)
+    if (feed instanceof Response) return feed
     const result = await load(feed)
     return new Response(result.body, { status: result.status, headers: {
       'content-type': 'application/json; charset=utf-8',

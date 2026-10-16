@@ -68,6 +68,8 @@ key 只用于本地 dev proxy 转发,不进前端代码。
 
 平台函数的进程内缓存跨实例不共享,每个新访客都会消耗额度。在两个平台的环境变量里设 `TD_CACHE_URL` 与 `TD_CACHE_TOKEN`,`/api/td` 与 `/api/layout` 就都转发到 VPS(行情共享缓存 + 全局唯一的布局,ADR-0004,部署见 `vps/README.md`),此时平台上不需要 `TWELVEDATA_API_KEY`、`ADMIN_TOKEN` 和 KV。不设则按下面各平台的说明直连 Twelve Data、布局存平台 KV。
 
+相同配置也让本地、Vercel 与 EdgeOne 的 `/api/market` 转发到 VPS，复用 VPS 的美股指标内存缓存：价格与估值六小时，CNN 三十分钟。该缓存与 Twelve Data 的 Redis 快照独立，服务重启后清空。未配置 VPS 时才由各平台直接读取指标来源，详见[美股指标](docs/market-indicators.md)。
+
 ### 腾讯 EdgeOne Pages
 
 1. 控制台创建项目并接入 Git 仓库(框架识别为 Vite);

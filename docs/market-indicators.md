@@ -21,15 +21,17 @@ Dashboard 默认显示「核对图表」；「美股指标」是按需打开的�
 
 ## API 与缓存
 
-`GET /api/market?feed=...` 仅接受 `sp500`、`nasdaq100`、`vix`、`valuations`、`fear-greed` 五个固定来源。Vite、Vercel、EdgeOne 和 VPS 共用 `server/marketData.ts`。VPS 备用前端的 nginx 转发该路径并注入服务口令，后端继续验证口令。不接受任意 URL、symbol、重复 feed 或其他参数；非 GET 请求返回 405。
+`GET /api/market?feed=...` 仅接受 `sp500`、`nasdaq100`、`vix`、`valuations`、`fear-greed` 五个固定来源。Vite、Vercel 和 EdgeOne 配齐 `TD_CACHE_URL` 与 `TD_CACHE_TOKEN` 时，经 `server/marketProxy.ts` 转发到 VPS；令牌仅在服务端加入请求头，不进入浏览器。未配齐时直接调用 `server/marketData.ts`。美股指标的转发不受本地 Twelve Data `API_KEY` 影响。VPS 备用前端的 nginx 已转发该路径并注入服务口令，后端继续验证口令。不接受任意 URL、symbol、重复 feed 或其他参数；非 GET 请求返回 405，这些请求在转发前即被拒绝。
 
-服务端只做来源读取、格式校验和日期整理。进程内同源请求去重：价格与估值缓存六小时，CNN 缓存三十分钟；失败不缓存，用户重试可以直接访问恢复后的来源。缓存尽力而为，不依赖跨实例共享存储。浏览器首次进入指标页才请求，五个来源独立载入，重试按钮只重试失败项。
+服务端只做来源读取、格式校验和日期整理。进程内同源请求去重：价格与估值缓存六小时，CNN 缓存三十分钟；失败不缓存，用户重试可以直接访问恢复后的来源。转发模式下，各前端共用 VPS 同一进程的缓存和并发请求去重。转发层保留成功响应的 HTTP 缓存头，不再叠加进程缓存；VPS 不可用时返回 502，不自动切回本机读取来源。
+
+美股指标缓存目前是内存 `Map`，VPS 服务重启后清空，不使用 Twelve Data 快照所用的 Redis。未配置 VPS 时，各平台进程分别维护自己的内存缓存。浏览器首次进入指标页才请求，五个来源独立载入，重试按钮只重试失败项。
 
 Yahoo 的当前未完成交易日不纳入价格指标。纽约日期用于价格和 CNN；蛋卷估值时间戳使用上海日期，避免午夜时间戳在 UTC 下前移一天。
 
 ## 本地网络与验证
 
-当前本机访问 Yahoo 需要用户提供的代理。Node 需要在启动时启用环境代理；例如：
+配置 VPS 转发时，本机只需能访问 VPS，无需为 Yahoo 配置本机代理。未配置 VPS 且本机无法直连 Yahoo 时，Node 需要在启动时启用用户提供的环境代理；例如：
 
 ```sh
 HTTP_PROXY=http://127.0.0.1:10808 \
