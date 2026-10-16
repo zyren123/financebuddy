@@ -10,7 +10,7 @@ if (!HOST) {
   process.exit(2)
 }
 const API = process.env.VPS_API_URL ?? 'https://api.zenode.duckdns.org'
-const TD_QUERY = '/api/td?endpoint=time_series&symbol=CGDV&interval=1day&outputsize=5000'
+const TD_QUERY = '/api/td?endpoint=time_series&symbol=CGDV&interval=1day&outputsize=5000&adjust=all'
 
 const results = []
 const check = (name, ok, detail = '') => {
@@ -47,6 +47,9 @@ const tdBody = td.status === 200 ? await td.json() : null
 check('公网带口令取行情', td.status === 200 && tdBody?.values?.length > 0, `HTTP ${td.status}, bars ${tdBody?.values?.length ?? 0}`)
 const layout = await get('/api/layout', { 'x-td-cache-token': token })
 check('公网带口令读布局', [200, 404].includes(layout.status), `HTTP ${layout.status}`)
+const market = await get('/api/market?feed=valuations', { 'x-td-cache-token': token })
+const marketBody = market.status === 200 ? await market.json() : null
+check('公网带口令读取美股估值', market.status === 200 && marketBody?.feed === 'valuations' && ['sp500', 'nasdaq100'].every((index) => marketBody.indices?.some((row) => row.index === index && row.pe > 0)), `HTTP ${market.status}`)
 
 const failed = results.filter((ok) => !ok).length
 console.log(`\n${results.length - failed}/${results.length} 项通过`)

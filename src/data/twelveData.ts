@@ -1,4 +1,5 @@
 import { acquireCredit } from './rateLimit'
+import { PRICE_ADJUSTMENT } from './types'
 import type { Bar, Interval } from './types'
 
 interface RawBar {
@@ -49,6 +50,7 @@ export async function fetchBars(opts: FetchBarsOpts): Promise<Bar[]> {
     symbol: opts.symbol,
     interval: opts.interval,
     outputsize: String(opts.outputsize ?? 5000),
+    adjust: PRICE_ADJUSTMENT,
   })
   if (opts.startDate) params.set('start_date', opts.startDate)
   if (opts.endDate) params.set('end_date', opts.endDate)

@@ -1,4 +1,4 @@
-# VPS 部署:行情共享缓存 + 布局存储 + 备用前端
+# VPS 部署:行情共享缓存 + 美股指标 + 布局存储 + 备用前端
 
 设计见 `docs/adr/0004-shared-td-cache-on-vps.md`。三个容器:`redis`(仅容器内网)、`td-cache`(`127.0.0.1:8787`)、`web`(备用前端,`127.0.0.1:8788`)。HTTPS 由 1Panel 的 OpenResty 反代负责。
 
@@ -10,13 +10,20 @@ GHCR 新包默认私有。第一次推送后到 GitHub 的 Packages 页把两个
 
 ## 部署
 
-VPS 上的部署目录是 `~/financebuddy/vps`,只需要两个文件:`docker-compose.yml` 与 `.env`。上线是手动的,确认 Images workflow 在 master 上跑完后,在 VPS 上:
+VPS 上的部署目录是 `~/financebuddy/vps`,只需要两个文件:`docker-compose.yml` 与 `.env`。本地修改须先提交并推送/合并到 `master`，等本次提交的 **Images** workflow 两个镜像都构建、推送成功，再在 VPS 更新。仅在 VPS 执行 pull 不会把未推送的本地代码打进镜像。
+
+若 `.env` 设置了 `IMAGE_TAG`，先改为这次提交的完整 SHA；未设置时使用 `latest`。更新现有服务时先替换后端，再替换前端：
 
 ```bash
 cd ~/financebuddy/vps
-sudo docker compose pull
-sudo docker compose up -d
+sudo docker compose pull td-cache web
+sudo docker compose up -d --no-deps td-cache
+curl -fsS --retry 10 --retry-connrefused --retry-delay 1 http://127.0.0.1:8787/healthz
+sudo docker compose up -d --no-deps web
+sudo docker compose ps
 ```
+
+健康检查应返回 `{"ok":true}` 后再执行 `web` 更新；若失败，先查看后端日志并保留现有前端。
 
 `docker-compose.yml` 改动时(很少),先从 GitHub 取最新版再执行上面两步:
 
@@ -27,6 +34,19 @@ curl -fsSL -o docker-compose.yml https://raw.githubusercontent.com/zyren123/fina
 回滚:在 `.env` 加 `IMAGE_TAG=<提交 SHA>`,再 `pull` + `up -d`;删掉这一行回到 `latest`。
 
 compose 项目名在文件里固定为 `vps`,Redis 卷 `vps_redis-data` 不随目录变,重建容器不丢数据。
+
+本次无需新增必填环境变量或修改 `docker-compose.yml`。后端镜像包含 `adjust=all` 支持和 `/api/market`；前端镜像包含移除前瞻 PE 的界面和新增的 nginx 指标路由。两者都必须更新。浏览器刷新后自动使用新复权缓存键。
+
+通过备用前端检查两个接口：
+
+```bash
+curl -fsS 'http://127.0.0.1:8788/api/td?endpoint=time_series&symbol=QQQ&interval=1day&outputsize=1&adjust=all'
+curl -fsS 'http://127.0.0.1:8788/api/market?feed=valuations'
+```
+
+第一条应返回 `status: "ok"` 的日线；第二条应返回 `feed: "valuations"` 与两个指数的 PE。备用前端 nginx 会在服务内部注入口令，浏览器和以上命令不需要持有口令。出现问题可查看 `sudo docker compose logs --tail=100 td-cache web`。
+
+若主站托管在 Vercel / EdgeOne，先完成 VPS 后端更新，再部署同一提交的主站；VPS 的 `web` 更新仅影响备用前端。
 
 ### 首次部署
 
@@ -48,6 +68,8 @@ IMAGE_TAG=<可选,提交 SHA;不设为 latest>
 ```
 
 ## 自检
+
+前复权版本需先更新 `td-cache` 再更新前端：浏览器新增 `adjust=all`，旧缓存服务会以 `parameter adjust not supported` 拒绝。新版按 symbol、interval、adjust 分开存储，不读取原来的无复权模式快照，无需清空 Redis。前端 IndexedDB 与内存查询键也区分新口径。开发期配置本机 `API_KEY` 时，Vite 会运行当前版本的内存行情缓存，布局仍按 `TD_CACHE_*` 转发到 VPS。
 
 `VPS_HOST=<ssh 目标> node vps/scripts/verify.mjs` 从本机检查容器、Redis、本机端口和公网 HTTPS 反代,任一项失败时退出码非 0。`VPS_HOST` 建议用 `~/.ssh/config` 里的别名,服务器地址不写进仓库。它只请求 CGDV 一个标的,快照有效期内不消耗 Twelve Data credit。
 

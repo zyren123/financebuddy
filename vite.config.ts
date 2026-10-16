@@ -7,16 +7,19 @@ import { handleLayoutRequest } from './server/layoutApi'
 import { createDevLayoutStore } from './server/devLayoutStore'
 import { readBody } from './server/readBody'
 import { relayLayoutRequest, vpsRelayFromEnv } from './server/vpsRelay'
+import { handleMarketRequest } from './server/marketData'
+import { createMemorySnapshotStore, createTdCache } from './server/tdCache'
 
-// 开发期 /api/td 由 Vite 中间件直接运行 server/tdProxy.ts 本体
-// (与生产的 Vercel / EdgeOne 适配器共用同一核心:白名单、6h 缓存、错误语义完全一致)。
+// 开发期有 API_KEY 时运行当前版本的共享行情缓存,避免依赖尚未部署的 VPS 版本。
+// 无本地 key 时仍经 tdProxy 转发;布局的 VPS 转发配置独立保持。
 // 开发期 /api/layout 配了 TD_CACHE_* 时转发到 VPS,否则用内存 KV 与出厂 JSON 播种。
 // ADMIN_TOKEN 缺省 dev-admin-token(仅本机;生产必须配真实口令)。
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
-  // dev 沿用 .env 的 API_KEY;另配 TD_CACHE_URL + TD_CACHE_TOKEN 可改走 VPS 共享缓存
+  const apiKey = env.API_KEY || process.env.API_KEY || ''
+  const localTdCache = apiKey ? createTdCache({ store: createMemorySnapshotStore(), apiKey }) : null
   const tdUpstream = upstreamFromEnv({
-    TWELVEDATA_API_KEY: env.API_KEY || process.env.API_KEY || '',
+    TWELVEDATA_API_KEY: apiKey,
     TD_CACHE_URL: env.TD_CACHE_URL,
     TD_CACHE_TOKEN: env.TD_CACHE_TOKEN,
   })
@@ -32,11 +35,29 @@ export default defineConfig(({ mode }) => {
       react(),
       tailwindcss(),
       {
+        name: 'market-dev-api',
+        apply: 'serve',
+        configureServer(server) {
+          server.middlewares.use((req, res, next) => {
+            if (req.url?.split('?')[0] !== '/api/market') {
+              next()
+              return
+            }
+            void (async () => {
+              const result = await handleMarketRequest(new Request(new URL(req.url, 'http://localhost'), { method: req.method ?? 'GET' }))
+              res.statusCode = result.status
+              result.headers.forEach((value, key) => res.setHeader(key, value))
+              res.end(await result.text())
+            })()
+          })
+        },
+      },
+      {
         name: 'td-dev-proxy',
         apply: 'serve',
         configureServer(server) {
           server.middlewares.use((req, res, next) => {
-            if (!req.url?.startsWith('/api/td')) {
+            if (req.url?.split('?')[0] !== '/api/td') {
               next()
               return
             }
@@ -47,7 +68,10 @@ export default defineConfig(({ mode }) => {
                 res.end(JSON.stringify({ error: 'method not allowed' }))
                 return
               }
-              const result = await proxyTwelveData(new URL(req.url, 'http://localhost'), tdUpstream)
+              const url = new URL(req.url, 'http://localhost')
+              const result = localTdCache
+                ? await localTdCache(url.searchParams)
+                : await proxyTwelveData(url, tdUpstream)
               res.statusCode = result.status
               res.setHeader('content-type', 'application/json')
               res.end(result.body)

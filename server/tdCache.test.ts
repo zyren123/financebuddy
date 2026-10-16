@@ -41,7 +41,7 @@ describe('createTdCache', () => {
 
     expect(fetchMock).toHaveBeenCalledTimes(1)
     expect(fetchMock.mock.calls[0]![0]).toBe(
-      'https://api.twelvedata.com/time_series?symbol=QQQ&interval=1day&outputsize=5000&apikey=k',
+      'https://api.twelvedata.com/time_series?symbol=QQQ&interval=1day&outputsize=5000&adjust=splits&apikey=k',
     )
     expect(visitors.map((v) => v.outcome)).toEqual(['hit', 'hit', 'hit'])
     const dates = (r: { body: string }) => (JSON.parse(r.body) as { values: RawBar[] }).values.map((b) => b.datetime)
@@ -91,7 +91,7 @@ describe('createTdCache', () => {
     expect(r1.body).toContain('symbol not found')
     expect(r2.body).toContain('symbol not found')
     expect(fetchMock).toHaveBeenCalledTimes(1)
-    expect(await store.get('td:time_series:NOPE:1day')).toBeNull()
+    expect(await store.get('td:time_series:NOPE:1day:splits')).toBeNull()
 
     t = FAILURE_COOLDOWN_MS + 1
     const r3 = await handle(q('symbol=NOPE&interval=1day'))
@@ -129,12 +129,31 @@ describe('createTdCache', () => {
     expect(JSON.parse(r.body)).toMatchObject({ code: 400, status: 'error' })
   })
 
+  it('前复权不复用旧版快照,不同复权模式分别缓存和请求上游', async () => {
+    const adjusted = { status: 200, body: { status: 'ok', values: [{ datetime: '2026-10-09', close: '90' }] } }
+    const fetchMock = stubUpstream(adjusted, ok)
+    const store = createMemorySnapshotStore()
+    await store.set('td:time_series:QQQ:1day', { meta: null, values: [{ datetime: '2026-10-09', close: '999' }], fetchedAt: Date.now() })
+    const handle = createTdCache({ store, apiKey: 'k' })
+    const all = await handle(q('symbol=QQQ&interval=1day&adjust=all'))
+    const splits = await handle(q('symbol=QQQ&interval=1day&adjust=splits'))
+    expect(JSON.parse(all.body).values[0].close).toBe('90')
+    expect(JSON.parse(splits.body).values[0].close).toBe('1')
+    expect(await handle(q('symbol=QQQ&interval=1day&adjust=all'))).toMatchObject({ outcome: 'hit', body: all.body })
+    expect(await handle(q('symbol=QQQ&interval=1day&adjust=splits'))).toMatchObject({ outcome: 'hit', body: splits.body })
+    expect(fetchMock).toHaveBeenCalledTimes(2)
+    expect(new URL(fetchMock.mock.calls[0][0]).searchParams.get('adjust')).toBe('all')
+    expect(new URL(fetchMock.mock.calls[1][0]).searchParams.get('adjust')).toBe('splits')
+  })
+
   it.each([
     'symbol=QQQ&interval=1min',
     'symbol=QQQ&interval=1week',
     'symbol=QQQ&interval=1day&apikey=x',
     'symbol=QQQ&interval=1day&outputsize=0',
     'symbol=QQQ&interval=1day&start_date=yesterday',
+    'symbol=QQQ&interval=1day&adjust=invalid',
+    'symbol=QQQ&interval=1day&adjust=all&adjust=splits',
     'symbol=Q%20Q&interval=1day',
   ])('非法参数 %s:400 且不打上游', async (query) => {
     const fetchMock = stubUpstream(ok)
@@ -146,7 +165,7 @@ describe('createTdCache', () => {
 })
 
 describe('sliceSnapshot(复刻上游 outputsize 截断语义)', () => {
-  const query = { symbol: 'QQQ', interval: '1day' as const, startDate: null, endDate: null }
+  const query = { symbol: 'QQQ', interval: '1day', adjust: 'all', startDate: null, endDate: null } as const
   it('先按区间过滤(start 含、end 不含),再保留最新 N 根', () => {
     const r = sliceSnapshot(FULL, { ...query, startDate: '2026-10-05', endDate: '2026-10-08', outputsize: 2 })
     expect(r.map((b) => b.datetime)).toEqual(['2026-10-07', '2026-10-06'])

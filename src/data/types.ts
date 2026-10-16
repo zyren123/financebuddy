@@ -1,3 +1,5 @@
+export const PRICE_ADJUSTMENT = 'all'
+
 export interface Bar {
   /** 'YYYY-MM-DD'(日线;周/月线为该周期起始日) */
   datetime: string

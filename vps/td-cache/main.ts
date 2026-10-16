@@ -4,6 +4,7 @@ import { createClient } from 'redis'
 import { handleLayoutRequest, type LayoutStore } from '../../server/layoutApi.js'
 import { createMemorySnapshotStore, createTdCache, type Snapshot, type SnapshotStore } from '../../server/tdCache.js'
 import { VPS_TOKEN_HEADER } from '../../server/vpsRelay.js'
+import { handleMarketRequest } from '../../server/marketData.js'
 
 const { TWELVEDATA_API_KEY, TD_CACHE_TOKEN, ADMIN_TOKEN, REDIS_URL } = process.env
 const PORT = Number(process.env.PORT ?? 8787)
@@ -74,12 +75,20 @@ function readBody(req: IncomingMessage): Promise<string | null> {
 const stores = REDIS_URL ? await redisStores(REDIS_URL) : memoryStores()
 const handleTd = createTdCache({ store: stores.snapshots, apiKey: TWELVEDATA_API_KEY })
 
-async function route(req: IncomingMessage, url: URL): Promise<{ status: number; body: string; log?: object }> {
+async function route(req: IncomingMessage, url: URL): Promise<{ status: number; body: string; headers?: Record<string, string>; log?: object }> {
   if (url.pathname === '/healthz') return { status: 200, body: '{"ok":true}' }
   const isTd = url.pathname === '/api/td'
   const isLayout = url.pathname === '/api/layout'
-  if (!isTd && !isLayout) return { status: 404, body: '{"error":"not found"}' }
+  const isMarket = url.pathname === '/api/market'
+  if (!isTd && !isLayout && !isMarket) return { status: 404, body: '{"error":"not found"}' }
   if (!authorized(req.headers[VPS_TOKEN_HEADER])) return { status: 401, body: '{"error":"unauthorized"}' }
+
+  if (isMarket) {
+    const result = await handleMarketRequest(new Request(url, { method: req.method ?? 'GET' }))
+    const headers: Record<string, string> = {}
+    result.headers.forEach((value, name) => { headers[name] = value })
+    return { status: result.status, body: await result.text(), headers, log: { market: url.searchParams.get('feed') } }
+  }
 
   if (isTd) {
     if (req.method !== 'GET') return { status: 405, body: '{"error":"method not allowed"}' }
@@ -110,7 +119,7 @@ createServer((req, res) => {
   route(req, url)
     .then((r) => {
       if (r.log) console.log(JSON.stringify({ ...r.log, status: r.status, ms: Date.now() - started }))
-      res.writeHead(r.status, { 'content-type': 'application/json' })
+      res.writeHead(r.status, { 'content-type': 'application/json', ...r.headers })
       res.end(r.body)
     })
     .catch((err) => {

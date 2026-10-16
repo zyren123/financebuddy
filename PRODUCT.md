@@ -26,15 +26,17 @@ web
 
 ## Operating Context
 
-- 数据源：Twelve Data 免费配额（8 credits/分钟、800/天），经薄代理 `/api/td` 转发（ADR-0001）。首屏多标的时按限速分批点亮，加载是渐进的。
-- 日线级数据，IndexedDB 全量缓存加每日增量，不做盘中实时。
-- 指标全部在前端计算（ADR-0002）。
+- 图表数据源：Twelve Data 免费配额（8 credits/分钟、800/天），经薄代理 `/api/td` 转发（ADR-0001）。首屏多标的时按限速分批点亮，加载是渐进的。
+- 股票与 ETF 图表使用分红、拆股前复权日线（`adjust=all`），IndexedDB 缓存完整快照、每六小时替换历史，避免公司行动后混用新旧因子；不做盘中实时。口径见[说明](docs/price-adjustment.md)。
+- 价格衍生指标在前端计算（ADR-0002）；美股指标中的 PE、估值百分位与 CNN 情绪分数采用来源发布值。
+- 美股指标是独立的免费公开源补充，经 `/api/market` 读取 Yahoo 指数日线与 VIX、蛋卷基金估值、CNN 官方恐惧贪婪指数。首次进入才请求，各源独立更新；每项保留自己的日期，缺失明确显示。价格与估值成功结果缓存六小时，CNN 三十分钟，失败可重试。口径与来源见 [美股指标](docs/market-indicators.md)。
 - 布局是服务端单一事实源（ADR-0003）：Published Layout 存 KV，Factory Layout 兜底；访客的时间区间等属于 Browse State，刷新即回。
 - 部署：Vercel 与 EdgeOne 双平台。
 
 ## Capabilities and Constraints
 
 - 三种 Card：K 线卡（蜡烛 + 成交量）、Ratio ROC 卡、指标卡（RSI / ROC / SMA / EMA，参数可调）。归一化对比卡已明确排除。
+- Dashboard 默认「核对图表」，另有「美股指标」页签，按行对照标普 500 与纳斯达克 100 的 RSI(6)、52 周回撤、TTM PE 和近 10 年 PE 百分位，并单列 VIX、CNN 恐惧贪婪指数。页签切换保留图表状态，属于 Browse State，不进入发布布局；Edit Mode 下先返回浏览再切换。
 - 两种 Preset：四宫格、自上而下，仅 Edit Mode 可用。
 - 网格可拖拽、可调宽高（react-grid-layout），图表用 lightweight-charts，十字线联动读数。
 - 术语以 `CONTEXT.md` 为准（Ticker、Ratio、Card、Draft、Publish 等），界面文案为中文（`lang="zh-CN"`）。
@@ -48,7 +50,7 @@ web
 
 ## Evidence on Hand
 
-- 真实行情数据通过 Twelve Data 获取；出厂布局在 `public/default-dashboard.json`。
+- 图表行情通过 Twelve Data 获取；出厂布局在 `public/default-dashboard.json`。补充的美股指标采用真实指数与各发布者数据，来源核验见 [记录](docs/research/us-market-indicator-sources.md)，不以 ETF 或固定演示读数代替。
 - 没有用户数、证言、回测业绩或收益数据。任何界面都不得虚构这些内容，也不得把 Ratio ROC 包装成有业绩背书的信号。
 
 ## Product Principles

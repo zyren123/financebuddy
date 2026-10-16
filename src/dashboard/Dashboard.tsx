@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { RefObject } from 'react'
 import type { RangeKey } from '../charts/convert'
 import { CHART_COLORS } from '../charts/theme'
 import { Detector } from '../cover/Detector'
 import type { RatioReadings } from '../data/useRatioReadings'
+import { MarketOverview } from '../market/MarketOverview'
 import { formatSigned } from '../ui/CountUp'
 import { ArrowUpRightIcon, CheckIcon, PencilIcon, PlusIcon } from '../ui/icons'
 import { useMediaQuery } from '../ui/useMediaQuery'
@@ -58,6 +59,26 @@ export function Dashboard({ admin, dashboard, readings, headerRef, emblemRef }: 
   // 手机端不开放布局编辑:单列堆叠,拖拽没有意义
   const narrow = useMediaQuery('(max-width: 767px)')
   const canEdit = isAdmin && !narrow
+
+  const [view, setView] = useState<'charts' | 'market'>('charts')
+  const [marketOpened, setMarketOpened] = useState(false)
+  const chartsRef = useRef<HTMLElement>(null)
+  const tabRefs = useRef<Record<'charts' | 'market', HTMLButtonElement | null>>({ charts: null, market: null })
+  const scrollOffsets = useRef({ charts: 0, market: 0 })
+  const restoringView = useRef(false)
+  const selectView = useCallback((next: 'charts' | 'market') => {
+    if (next === view || editing) return
+    scrollOffsets.current[view] = Math.max(0, window.scrollY - (chartsRef.current?.offsetTop ?? 0))
+    restoringView.current = true
+    if (next === 'market') setMarketOpened(true)
+    setView(next)
+  }, [view, editing])
+
+  useLayoutEffect(() => {
+    if (!restoringView.current) return
+    restoringView.current = false
+    window.scrollTo({ top: (chartsRef.current?.offsetTop ?? 0) + scrollOffsets.current[view], behavior: 'instant' })
+  }, [view])
 
   const [loginOpen, setLoginOpen] = useState(false)
   const [password, setPassword] = useState('')
@@ -125,14 +146,14 @@ export function Dashboard({ admin, dashboard, readings, headerRef, emblemRef }: 
     const onKey = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null
       if (target && /^(INPUT|SELECT|TEXTAREA)$/.test(target.tagName)) return
-      if ((e.key === 'e' || e.key === 'E') && canEdit) {
+      if ((e.key === 'e' || e.key === 'E') && canEdit && view === 'charts') {
         if (editing) finishEditing()
         else beginEditing()
       }
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [canEdit, editing, beginEditing, finishEditing])
+  }, [canEdit, editing, beginEditing, finishEditing, view])
 
   const onLogin = useCallback(async () => {
     if (loginState === 'checking' || !password) return
@@ -188,7 +209,7 @@ export function Dashboard({ admin, dashboard, readings, headerRef, emblemRef }: 
   )
 
   return (
-    <section id="charts" aria-label="图表" className="relative min-h-svh">
+    <section id="charts" ref={chartsRef} aria-label="仪表盘" className="relative min-h-svh">
       <header
         ref={headerRef}
         className="sticky top-0 z-20 border-b border-edge bg-void"
@@ -214,7 +235,7 @@ export function Dashboard({ admin, dashboard, readings, headerRef, emblemRef }: 
           </ul>
 
           <div className={`ml-auto flex shrink-0 flex-wrap items-center gap-2 ${isAdmin ? 'md:w-full md:justify-end lg:w-auto' : ''}`}>
-            {canEdit && !editing && (
+            {canEdit && !editing && view === 'charts' && (
               <button type="button" className={btn} onClick={beginEditing} disabled={state == null}>
                 <PencilIcon /> 编辑布局(E)
               </button>
@@ -304,52 +325,84 @@ export function Dashboard({ admin, dashboard, readings, headerRef, emblemRef }: 
 
       <div className="mx-auto max-w-[1440px] px-5 pb-24 pt-8 md:px-12 md:pt-12">
         <div className="mb-8 flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2 md:mb-10">
-          <h2 className="font-display text-[clamp(2rem,4vw,3rem)] leading-none text-ink">核对图表</h2>
+          <div role="tablist" aria-label="仪表盘视图" className="flex items-baseline gap-6 md:gap-8">
+            {([{ key: 'charts', label: '核对图表' }, { key: 'market', label: '美股指标' }] as const).map((tab) => (
+              <button
+                key={tab.key}
+                ref={(element) => { tabRefs.current[tab.key] = element }}
+                id={`dashboard-tab-${tab.key}`}
+                type="button"
+                role="tab"
+                aria-selected={view === tab.key}
+                aria-controls={`dashboard-panel-${tab.key}`}
+                tabIndex={view === tab.key ? 0 : -1}
+                disabled={editing && tab.key === 'market'}
+                title={editing && tab.key === 'market' ? '请先返回浏览再查看指标' : undefined}
+                onClick={() => selectView(tab.key)}
+                onKeyDown={(event) => {
+                  if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return
+                  event.preventDefault()
+                  const next = event.key === 'Home' ? 'charts' : event.key === 'End' ? 'market' : view === 'charts' ? 'market' : 'charts'
+                  if (editing && next === 'market') return
+                  selectView(next)
+                  tabRefs.current[next]?.focus()
+                }}
+                className={`border-b pb-3 font-display text-[26px] leading-tight transition-colors md:text-[32px] disabled:opacity-40 ${view === tab.key ? 'border-copper text-ink' : 'border-transparent text-ink-faint hover:text-ink'}`}
+              >
+                {tab.label}
+              </button>
+            ))}
+          </div>
           <p className="num text-[11px] text-ink-faint">
-            Twelve Data 日线{readings.date ? ` · 截至 ${readings.date}` : ''}
+            {view === 'charts' ? <>Twelve Data 日线{readings.date ? ` · 截至 ${readings.date}` : ''}</> : '价格 / 估值 / 情绪分别更新'}
           </p>
         </div>
 
-        {actionMessage && <p role="status" className="mb-6 text-[13px] leading-relaxed text-ink-muted">{actionMessage}</p>}
-        {isAdmin && narrow && <p className="mb-6 text-[13px] text-ink-muted">布局编辑需使用桌面宽度。当前可浏览图表。</p>}
-        {ready && state?.cards.length === 0 && <p role="status" className="mb-6 text-[13px] text-ink-muted">当前布局没有卡片。{canEdit ? '进入编辑布局后添加卡片。' : '请等待管理员发布图表。'}</p>}
+        <div id="dashboard-panel-charts" role="tabpanel" aria-labelledby="dashboard-tab-charts" hidden={view !== 'charts'} tabIndex={0}>
+          {actionMessage && <p role="status" className="mb-6 text-[13px] leading-relaxed text-ink-muted">{actionMessage}</p>}
+          {isAdmin && narrow && <p className="mb-6 text-[13px] text-ink-muted">布局编辑需使用桌面宽度。当前可浏览图表。</p>}
+          {ready && state?.cards.length === 0 && <p role="status" className="mb-6 text-[13px] text-ink-muted">当前布局没有卡片。{canEdit ? '进入编辑布局后添加卡片。' : '请等待管理员发布图表。'}</p>}
 
-        {ready && state ? (
-          <DashboardGrid
-            cards={state.cards}
-            layout={state.layout}
-            editMode={editing && canEdit}
-            stacked={narrow}
-            rangeOverride={rangeOverride}
-            onLayoutChange={setLayout}
-            onCardChange={updateCard}
-            onCardRemove={removeCard}
-            onRangeSelect={onRangeSelect}
-          />
-        ) : (
-          <div className="flex h-64 items-center justify-center">
-            <div role="status" className="border border-dashed border-copper-dim px-4 py-3 text-[12px] text-ink-muted">
-              {loadFailed ? '布局服务暂时不可用,稍后刷新重试' : '正在载入布局…'}
+          {ready && state ? (
+            <DashboardGrid
+              cards={state.cards}
+              layout={state.layout}
+              editMode={editing && canEdit}
+              stacked={narrow}
+              rangeOverride={rangeOverride}
+              onLayoutChange={setLayout}
+              onCardChange={updateCard}
+              onCardRemove={removeCard}
+              onRangeSelect={onRangeSelect}
+            />
+          ) : (
+            <div className="flex h-64 items-center justify-center">
+              <div role="status" className="border border-dashed border-copper-dim px-4 py-3 text-[12px] text-ink-muted">
+                {loadFailed ? '布局服务暂时不可用,稍后刷新重试' : '正在载入布局…'}
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        <footer className="mt-16 flex flex-wrap items-baseline gap-x-4 gap-y-1 border-t border-edge pt-5 md:mt-24">
-          <span className="num text-[11px] text-ink-faint">方法来源</span>
-          <p className="text-[13px] leading-relaxed text-ink-muted">
-            Ratio ROC 指标参考自原作者的讲解视频：
-            <a
-              href="https://www.youtube.com/watch?v=PAQ4Y7D1JTM"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="ml-1 inline-flex items-baseline gap-1 text-ink underline decoration-field underline-offset-4 transition-colors duration-200 hover:decoration-copper"
-            >
-              在 YouTube 观看
-              <ArrowUpRightIcon className="self-center" />
-              <span className="sr-only">(在新标签页打开)</span>
-            </a>
-          </p>
-        </footer>
+          <footer className="mt-16 flex flex-wrap items-baseline gap-x-4 gap-y-1 border-t border-edge pt-5 md:mt-24">
+            <span className="num text-[11px] text-ink-faint">方法来源</span>
+            <p className="text-[13px] leading-relaxed text-ink-muted">
+              Ratio ROC 指标参考自原作者的讲解视频：
+              <a
+                href="https://www.youtube.com/watch?v=PAQ4Y7D1JTM"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="ml-1 inline-flex items-baseline gap-1 text-ink underline decoration-field underline-offset-4 transition-colors duration-200 hover:decoration-copper"
+              >
+                在 YouTube 观看
+                <ArrowUpRightIcon className="self-center" />
+                <span className="sr-only">(在新标签页打开)</span>
+              </a>
+            </p>
+          </footer>
+        </div>
+        <div id="dashboard-panel-market" role="tabpanel" aria-labelledby="dashboard-tab-market" hidden={view !== 'market'} tabIndex={0}>
+          {marketOpened && <MarketOverview active={view === 'market'} />}
+        </div>
       </div>
 
       {loginOpen && (

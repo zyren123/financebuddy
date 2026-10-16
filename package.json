@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit && tsc -p tsconfig.server.json",
     "test": "vitest run",
     "test:watch": "vitest",
-    "smoke": "node scripts/smoke.mjs"
+    "smoke": "node scripts/smoke.mjs",
+    "smoke:market": "node scripts/smoke-market.mjs"
   },
   "dependencies": {
     "@fontsource-variable/martian-mono": "5.3.0",

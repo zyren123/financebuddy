@@ -5,6 +5,7 @@
  */
 
 export type Interval = '1day'
+type Adjustment = 'all' | 'splits' | 'dividends' | 'none'
 
 export interface RawBar {
   datetime: string
@@ -26,6 +27,7 @@ export interface SnapshotStore {
 export interface SeriesQuery {
   symbol: string
   interval: Interval
+  adjust: Adjustment
   outputsize: number | null
   startDate: string | null
   endDate: string | null
@@ -41,7 +43,7 @@ export interface CacheResult {
 
 // 前端只请求日线;周/月线的区间语义(含当前未完结周期)未与上游核对过,先不放行
 const INTERVALS = new Set<string>(['1day'])
-const ALLOWED_PARAMS = new Set(['endpoint', 'symbol', 'interval', 'outputsize', 'start_date', 'end_date'])
+const ALLOWED_PARAMS = new Set(['endpoint', 'symbol', 'interval', 'outputsize', 'start_date', 'end_date', 'adjust'])
 const SYMBOL_RE = /^[A-Za-z0-9.\-:/]{1,20}$/
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
 const FULL_SIZE = 5000
@@ -64,6 +66,10 @@ export function parseSeriesQuery(params: URLSearchParams): SeriesQuery | { error
   const interval = params.get('interval') ?? ''
   if (!SYMBOL_RE.test(symbol)) return { error: 'invalid symbol' }
   if (!INTERVALS.has(interval)) return { error: 'invalid interval' }
+  const adjust = params.get('adjust') ?? 'splits'
+  if (params.getAll('adjust').length > 1 || (adjust !== 'all' && adjust !== 'splits' && adjust !== 'dividends' && adjust !== 'none')) {
+    return { error: 'invalid adjust' }
+  }
 
   const rawSize = params.get('outputsize')
   const outputsize = rawSize === null ? null : Number(rawSize)
@@ -75,7 +81,7 @@ export function parseSeriesQuery(params: URLSearchParams): SeriesQuery | { error
   if ((startDate && !DATE_RE.test(startDate)) || (endDate && !DATE_RE.test(endDate))) {
     return { error: 'invalid date' }
   }
-  return { symbol: symbol.toUpperCase(), interval: interval as Interval, outputsize, startDate, endDate }
+  return { symbol: symbol.toUpperCase(), interval: '1day', adjust, outputsize, startDate, endDate }
 }
 
 /**
@@ -123,6 +129,7 @@ export function createTdCache({ store, apiKey, now = Date.now }: TdCacheDeps) {
       symbol: q.symbol,
       interval: q.interval,
       outputsize: String(FULL_SIZE),
+      adjust: q.adjust,
       apikey: apiKey,
     })
     let status: number
@@ -177,7 +184,7 @@ export function createTdCache({ store, apiKey, now = Date.now }: TdCacheDeps) {
     const q = parseSeriesQuery(params)
     if ('error' in q) return json(400, { error: q.error }, 'upstream-error')
 
-    const key = `td:time_series:${q.symbol}:${q.interval}`
+    const key = `td:time_series:${q.symbol}:${q.interval}:${q.adjust}`
     const cached = await store.get(key)
     let snapshot: Snapshot
     let outcome: CacheOutcome

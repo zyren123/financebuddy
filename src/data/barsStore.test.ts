@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { get, set } from 'idb-keyval'
 import { addDays } from '../lib/date'
-import { ensureBars, mergeBars } from './barsStore'
+import { ensureBars } from './barsStore'
 import { fetchBars, type FetchBarsOpts } from './twelveData'
 import type { Bar } from './types'
 
@@ -15,35 +15,6 @@ const bar = (datetime: string, close: number): Bar => ({
   low: close,
   close,
   volume: 100,
-})
-
-describe('mergeBars', () => {
-  it('同日以新数据覆盖(收盘修正/盘中部分 K)', () => {
-    const merged = mergeBars(
-      [bar('2026-09-23', 100), bar('2026-09-24', 101)],
-      [bar('2026-09-24', 101.5)],
-    )
-    expect(merged).toHaveLength(2)
-    expect(merged[1]!.close).toBe(101.5)
-  })
-
-  it('新增日期按升序插入', () => {
-    const merged = mergeBars(
-      [bar('2026-09-22', 99), bar('2026-09-24', 101)],
-      [bar('2026-09-23', 100), bar('2026-09-25', 102)],
-    )
-    expect(merged.map((b) => b.datetime)).toEqual([
-      '2026-09-22',
-      '2026-09-23',
-      '2026-09-24',
-      '2026-09-25',
-    ])
-  })
-
-  it('newer 为空时原样返回 older', () => {
-    const older = [bar('2026-09-22', 99)]
-    expect(mergeBars(older, [])).toEqual(older)
-  })
 })
 
 /** 区间内的工作日(近似交易日),升序 */
@@ -100,15 +71,13 @@ describe('ensureBars', () => {
     vi.mocked(get).mockResolvedValue(undefined)
     const bars = await ensureBars('QQQ', '1day')
     expect(bars.map((b) => b.datetime)).toEqual(history)
-    expect(set).toHaveBeenCalledWith('bars:QQQ:1day', { bars, syncedAt: Date.now() })
+    expect(set).toHaveBeenCalledWith('bars:all:QQQ:1day', { bars, syncedAt: Date.now() })
   })
 
-  it('短缺口:从最后一根次日起增量补齐', async () => {
+  it('短缺口也刷新完整历史,包括最后一日收盘修正', async () => {
     cacheUpTo('2026-10-02', Date.now() - 7 * HOUR)
     const bars = await ensureBars('QQQ', '1day')
-    expect(fetchBars).toHaveBeenCalledWith(
-      expect.objectContaining({ startDate: '2026-10-03', endDate: TODAY }),
-    )
+    expect(fetchBars).toHaveBeenCalledWith({ symbol: 'QQQ', interval: '1day', outputsize: 5000 })
     expect(bars.map((b) => b.datetime)).toEqual(history)
   })
 
@@ -118,7 +87,7 @@ describe('ensureBars', () => {
     expect(bars.map((b) => b.datetime)).toEqual(history)
   })
 
-  it('增量失败(如额度用完)时退回旧缓存,且不刷新同步时间', async () => {
+  it('刷新失败(如额度用完)时退回同口径旧缓存,且不刷新同步时间', async () => {
     cacheUpTo('2026-10-02', Date.now() - 7 * HOUR)
     vi.mocked(fetchBars).mockRejectedValue(new Error('代理请求失败:HTTP 429 run out of API credits for the day'))
     const bars = await ensureBars('QQQ', '1day')
@@ -130,5 +99,23 @@ describe('ensureBars', () => {
     vi.mocked(get).mockResolvedValue(undefined)
     vi.mocked(fetchBars).mockRejectedValue(new Error('代理请求失败:HTTP 429'))
     await expect(ensureBars('QQQ', '1day')).rejects.toThrow('HTTP 429')
+  })
+
+  it('切换复权口径后不读取旧版的拆股复权缓存', async () => {
+    vi.mocked(get).mockImplementation(async (key) => key === 'bars:QQQ:1day'
+      ? { bars: [bar('2026-10-08', 999)], syncedAt: Date.now() }
+      : undefined)
+    const bars = await ensureBars('QQQ', '1day')
+    expect(bars.map((b) => b.datetime)).toEqual(history)
+    expect(bars.every((b) => b.close === 100)).toBe(true)
+    expect(fetchBars).toHaveBeenCalledTimes(1)
+  })
+
+  it('新的分红因子作用到整段历史,不能只拼接新的交易日', async () => {
+    vi.mocked(get).mockResolvedValue({ bars: [bar('2026-10-07', 100), bar('2026-10-08', 110)], syncedAt: Date.now() - 7 * HOUR })
+    const adjusted = [bar('2026-10-07', 90), bar('2026-10-08', 99), bar(TODAY, 101)]
+    vi.mocked(fetchBars).mockResolvedValue(adjusted)
+    expect(await ensureBars('QQQ', '1day')).toEqual(adjusted)
+    expect(set).toHaveBeenCalledWith('bars:all:QQQ:1day', { bars: adjusted, syncedAt: Date.now() })
   })
 })

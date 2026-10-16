@@ -6,6 +6,7 @@ COPY vps/td-cache/package.json vps/td-cache/package-lock.json ./
 RUN npm ci
 COPY server /app/server
 COPY src/dashboard /app/src/dashboard
+COPY src/market /app/src/market
 COPY vps/td-cache/main.ts ./
 RUN npx esbuild main.ts --bundle --platform=node --format=esm --target=node24 \
       --external:redis --outfile=dist/main.mjs

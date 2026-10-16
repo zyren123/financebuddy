@@ -37,7 +37,7 @@ key 只用于本地 dev proxy 转发,不进前端代码。
 ```
 浏览器 SPA(React 19 + Vite + Tailwind + TanStack Query)
   ├─ GET /api/td?endpoint=time_series&…  → 十二数据代理
-  │    ├─ 开发期:Vite 中间件直接运行共享核心(白名单/缓存全同构)
+  │    ├─ 开发期:有 API_KEY 时运行当前共享缓存核心,无 key 时转发到 VPS
   │    ├─ Vercel:api/td.ts        ─┐ 各 ~20 行适配器
   │    └─ EdgeOne:functions/api/td/index.ts ─┘
   │         └─ server/tdProxy.ts(共享核心:白名单、6h 共享缓存、key 注入)
@@ -47,11 +47,11 @@ key 只用于本地 dev proxy 转发,不进前端代码。
        ├─ PUT/POST(x-admin-token):发布 / verify / 恢复上一版,服务端校验 schema
        └─ LayoutStore adapter:Vercel=Upstash REST(api/layout.ts)、EdgeOne=KV 绑定(functions/api/layout)、
             dev=内存+出厂播种(vite 中间件);共享核心在 server/layoutApi.ts
-数据层:IndexedDB 全量缓存(1 credit ≈ 5000 根日 K)+ 每日增量 + 8 credits/min 限速队列
+数据层:分红与拆股前复权日线(adjust=all)+ IndexedDB 完整快照(6h 刷新)+ 8 credits/min 限速队列
 指标层:纯函数(ROC/RSI/SMA/EMA + 比值对齐),测试先行
 ```
 
-免费配额(8 credits/分钟、800/天)下的用量:每 Ticker 首次 1 credit 拉全量,之后每天增量约 1-4 credits;多标的 dashboard 首屏会按限速分批点亮。
+免费配额(8 credits/分钟、800/天)下的用量:每 Ticker 首次 1 credit 拉全量,之后每 6h 刷新一次完整历史;多标的 dashboard 首屏会按限速分批点亮。完整替换可以同时更新公司行动引起的历史复权因子,详见[行情复权口径](docs/price-adjustment.md)。
 
 ## 部署
 

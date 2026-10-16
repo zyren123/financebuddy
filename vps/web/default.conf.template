@@ -17,6 +17,11 @@ server {
         client_max_body_size 256k;
     }
 
+    location = /api/market {
+        proxy_pass $td_cache;
+        proxy_set_header x-td-cache-token "${TD_CACHE_TOKEN}";
+    }
+
     location /api/ {
         return 404;
     }
