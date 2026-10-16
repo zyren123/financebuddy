@@ -16,3 +16,9 @@ dist/
 
 # Impeccable 设计工具本地状态(决策草图、方向记录、问答状态)
 .impeccable/
+
+# 本地回测数据快照与生成报告（可由脚本重新生成）
+backtests/tqqq_gate/data/
+backtests/tqqq_gate/results/
+backtests/tqqq_gate/.venv/
+__pycache__/
