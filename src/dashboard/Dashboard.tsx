@@ -8,6 +8,7 @@ import { MarketOverview } from '../market/MarketOverview'
 import { formatSigned } from '../ui/CountUp'
 import { ArrowUpRightIcon, CheckIcon, PencilIcon, PlusIcon } from '../ui/icons'
 import { useMediaQuery } from '../ui/useMediaQuery'
+import { SelectionIndicator } from '../motion/SelectionIndicator'
 import type { useAdmin } from './useAdmin'
 import { cardFactories } from './useDashboard'
 import type { useDashboard } from './useDashboard'
@@ -64,6 +65,7 @@ export function Dashboard({ admin, dashboard, readings, headerRef, emblemRef }: 
   const [marketOpened, setMarketOpened] = useState(false)
   const chartsRef = useRef<HTMLElement>(null)
   const tabRefs = useRef<Record<'charts' | 'market', HTMLButtonElement | null>>({ charts: null, market: null })
+  const tablistRef = useRef<HTMLDivElement>(null)
   const scrollOffsets = useRef({ charts: 0, market: 0 })
   const restoringView = useRef(false)
   const selectView = useCallback((next: 'charts' | 'market') => {
@@ -215,7 +217,10 @@ export function Dashboard({ admin, dashboard, readings, headerRef, emblemRef }: 
         className="sticky top-0 z-20 border-b border-edge bg-void"
       >
         <div className="mx-auto flex max-w-[1440px] flex-wrap items-center gap-3 px-5 py-2.5 md:gap-5 md:px-12 lg:flex-nowrap">
-          <a href="#top" className="flex shrink-0 items-center gap-2.5" aria-label="回到封面">
+          <a href="#top" className="flex shrink-0 items-center gap-2.5" aria-label="回到封面" onClick={(event) => {
+            event.preventDefault()
+            window.scrollTo({ top: 0, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth' })
+          }}>
             <div ref={emblemRef} className="h-7 w-7 opacity-0">
               <Detector readings={readings.readings} fired active={null} compact className="h-full w-full" />
             </div>
@@ -325,7 +330,8 @@ export function Dashboard({ admin, dashboard, readings, headerRef, emblemRef }: 
 
       <div className="mx-auto max-w-[1440px] px-5 pb-24 pt-8 md:px-12 md:pt-12">
         <div className="mb-8 flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2 md:mb-10">
-          <div role="tablist" aria-label="仪表盘视图" className="flex items-baseline gap-6 md:gap-8">
+          <div ref={tablistRef} role="tablist" aria-label="仪表盘视图" className="relative flex items-baseline gap-6 md:gap-8">
+            <SelectionIndicator container={tablistRef} selected={view} />
             {([{ key: 'charts', label: '核对图表' }, { key: 'market', label: '美股指标' }] as const).map((tab) => (
               <button
                 key={tab.key}
@@ -347,7 +353,7 @@ export function Dashboard({ admin, dashboard, readings, headerRef, emblemRef }: 
                   selectView(next)
                   tabRefs.current[next]?.focus()
                 }}
-                className={`border-b pb-3 font-display text-[26px] leading-tight transition-colors md:text-[32px] disabled:opacity-40 ${view === tab.key ? 'border-copper text-ink' : 'border-transparent text-ink-faint hover:text-ink'}`}
+                className={`border-b border-transparent pb-3 font-display text-[26px] leading-tight transition-colors md:text-[32px] disabled:opacity-40 ${view === tab.key ? 'text-ink' : 'text-ink-faint hover:text-ink'}`}
               >
                 {tab.label}
               </button>

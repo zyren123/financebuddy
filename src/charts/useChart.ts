@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import { ColorType, CrosshairMode, createChart } from 'lightweight-charts'
 import type { IChartApi } from 'lightweight-charts'
 import { CHART_COLORS, MONO_FONT } from './theme'
+import { cancelRangeMotion } from './range'
 
 /** 创建带暗色主题的 lightweight-charts 实例,自动跟随容器尺寸,卸载时销毁 */
 export function useChart() {
@@ -42,7 +43,13 @@ export function useChart() {
       },
     })
     chartRef.current = chart
+    const interrupt = () => cancelRangeMotion(chart)
+    container.addEventListener('pointerdown', interrupt, { passive: true })
+    container.addEventListener('wheel', interrupt, { passive: true })
     return () => {
+      container.removeEventListener('pointerdown', interrupt)
+      container.removeEventListener('wheel', interrupt)
+      cancelRangeMotion(chart)
       chart.remove()
       chartRef.current = null
     }

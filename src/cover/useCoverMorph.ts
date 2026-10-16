@@ -27,7 +27,7 @@ export function useCoverMorph({ cover, detector, texts, emblem, header }: Refs, 
     const hd = header.current
     const cv = cover.current
     if (!det || !em || !hd || !cv) return
-    const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    const preference = window.matchMedia('(prefers-reduced-motion: reduce)')
 
     let headerDocTop = 0
     const measure = () => {
@@ -62,7 +62,8 @@ export function useCoverMorph({ cover, detector, texts, emblem, header }: Refs, 
         if (!el) continue
         const tp = clamp01(p / 0.55)
         el.style.opacity = String(1 - tp)
-        el.style.transform = reduced ? '' : `translate3d(0, ${-48 * tp}px, 0)`
+        el.style.transform = preference.matches ? '' : `translate3d(0, ${-48 * tp}px, 0)`
+        el.inert = tp >= 1
       }
 
       // 落点:页头在文档中的位置是 end(封面高度);未吸顶前随页面滚动,吸顶后固定在视口顶
@@ -72,7 +73,9 @@ export function useCoverMorph({ cover, detector, texts, emblem, header }: Refs, 
       const startX = n.left + n.size / 2
       const startY = n.top - window.scrollY + n.size / 2
 
-      if (reduced) {
+      det.inert = p > 0.55
+      if (preference.matches) {
+        det.style.transform = ''
         det.style.opacity = String(1 - clamp01(p / 0.6))
         em.style.opacity = p > 0.9 ? '1' : '0'
         return
@@ -85,6 +88,9 @@ export function useCoverMorph({ cover, detector, texts, emblem, header }: Refs, 
       const scale = 1 + (n.emblemSize / n.size - 1) * m
       // 自然位置随页面滚动上移了 scrollY,补回来再插值到落点
       det.style.transform = `translate3d(${cx - startX}px, ${cy - startY}px, 0) scale(${scale})`
+      det.style.setProperty('--detector-detail', String(1 - clamp01(m / 0.75)))
+      det.style.setProperty('--detector-weight', String(m))
+      det.style.willChange = p > 0 && p < 1 ? 'transform' : 'auto'
       const landed = p >= 0.995
       det.style.opacity = landed ? '0' : '1'
       em.style.opacity = landed ? '1' : '0'
@@ -105,11 +111,13 @@ export function useCoverMorph({ cover, detector, texts, emblem, header }: Refs, 
     void document.fonts?.ready.then(onResize)
     window.addEventListener('scroll', onScroll, { passive: true })
     window.addEventListener('resize', onResize)
+    preference.addEventListener('change', apply)
     return () => {
       ro.disconnect()
       cancelAnimationFrame(frame)
       window.removeEventListener('scroll', onScroll)
       window.removeEventListener('resize', onResize)
+      preference.removeEventListener('change', apply)
     }
   }, [cover, detector, texts, emblem, header, ready])
 }

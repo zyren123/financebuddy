@@ -93,8 +93,8 @@ export function Cover({ data, period, detectorRef, textRefs, onEnter }: Props) {
       </div>
 
       <figure className="relative order-2 m-0 mt-3 md:col-start-2 md:row-span-4 md:row-start-1 md:mt-0 md:self-center">
-        <div ref={detectorRef} className="relative z-30 mx-auto aspect-square w-[min(78vw,40svh)] will-change-transform md:w-full md:max-w-[780px]">
-          <Detector readings={readings} fired={fired} active={active} onActive={setActive} className="h-full w-full" />
+        <div ref={detectorRef} className="relative z-30 mx-auto aspect-square w-[min(78vw,40svh)] md:w-full md:max-w-[780px]">
+          <Detector readings={readings} fired={fired} active={active} onActive={setActive} period={period} className="h-full w-full" />
           {!fired && (
             <div className="num absolute inset-0 flex items-center justify-center text-[12px] text-ink-muted">
               {error ? '暂无读数' : `${loaded}/${total}`}

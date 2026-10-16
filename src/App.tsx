@@ -6,6 +6,7 @@ import type { RatioPair } from './dashboard/types'
 import { useAdmin } from './dashboard/useAdmin'
 import { useDashboard } from './dashboard/useDashboard'
 import { useRatioReadings } from './data/useRatioReadings'
+import { usePressFeedback } from './motion/usePressFeedback'
 
 /** 布局还没到时封面先用出厂的三条 Ratio 取数(与 Factory Layout 一致) */
 const FALLBACK_PAIRS: RatioPair[] = [
@@ -20,6 +21,7 @@ const FALLBACK_PERIOD = 35
  * 封面读数取自布局里第一张 Ratio ROC 卡,Admin 改了卡片发布后封面跟着变。
  */
 export default function App() {
+  usePressFeedback()
   const admin = useAdmin()
   const dashboard = useDashboard(admin.adminToken)
 
@@ -45,7 +47,7 @@ export default function App() {
   )
 
   const enterCharts = useCallback(() => {
-    document.getElementById('charts')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    document.getElementById('charts')?.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth', block: 'start' })
   }, [])
 
   return (

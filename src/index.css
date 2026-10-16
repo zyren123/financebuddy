@@ -92,71 +92,61 @@ select {
   touch-action: pan-y;
 }
 
-/* ---- 封面探测器动效 ---- */
+/* Motion: spring.ts owns interruption; CSS owns the one-shot event sequence. */
+:root {
+  --motion-feedback: 140ms;
+  --motion-state: 260ms;
+  --motion-draw: 640ms;
+}
+
+button, a { -webkit-tap-highlight-color: transparent; }
+button {
+  transition: color var(--motion-feedback) ease-out, background-color var(--motion-feedback) ease-out, border-color var(--motion-feedback) ease-out;
+}
+button { cursor: pointer; }
+button:disabled { cursor: default; }
+.selection-indicator {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  width: 1px;
+  height: 1px;
+  background: var(--color-copper);
+  transform-origin: left center;
+  pointer-events: none;
+}
 
 .track {
   stroke-dasharray: 1;
   stroke-dashoffset: 1;
-  transition:
-    stroke-dashoffset 1.1s var(--ease-out-expo),
-    opacity 0.35s ease;
+  transition: stroke-dashoffset var(--motion-draw) var(--ease-out-expo);
 }
-.fired .track {
-  stroke-dashoffset: 0;
+.fired .track { stroke-dashoffset: 0; }
+.detector-ring {
+  stroke-dasharray: 1;
+  animation: ring-draw 520ms var(--ease-out-expo) both;
+  transform: rotate(-90deg);
+  transform-origin: 500px 500px;
 }
-
-.hit {
-  opacity: 0;
-  transform-box: fill-box;
-  transform-origin: center;
-}
-.fired .hit {
-  animation: hit 0.9s var(--ease-out-expo) forwards;
-}
-@keyframes hit {
-  0% {
-    opacity: 0;
-    transform: scale(0.4);
-  }
-  30% {
-    opacity: 1;
-  }
-  100% {
-    opacity: 0.9;
-    transform: scale(1);
-  }
-}
-
-.vertex-flash {
-  opacity: 0;
-  transform-box: fill-box;
-  transform-origin: center;
-}
-.fired .vertex-flash {
-  animation: vertex 0.7s ease-out;
-}
-@keyframes vertex {
-  0% {
-    opacity: 0.9;
-    transform: scale(0.2);
-  }
-  100% {
-    opacity: 0;
-    transform: scale(3);
-  }
-}
+@keyframes ring-draw { from { stroke-dashoffset: 1; } to { stroke-dashoffset: 0; } }
+.detector-tick { animation: tick-arrive var(--motion-state) ease-out both; }
+@keyframes tick-arrive { from { opacity: 0; } to { opacity: 1; } }
+.detector-arrival { opacity: 0; }
+.fired .detector-arrival { animation: node-arrive 200ms ease-out both; }
+@keyframes node-arrive { from { opacity: 0; } to { opacity: 1; } }
+.detector-control { cursor: pointer; }
+.detector-control:focus-visible { outline: none; }
+.detector-control:focus-visible > circle { stroke: var(--color-copper); stroke-width: 2; stroke-dasharray: 3 5; }
+.detector-details { opacity: var(--detector-detail, 1); }
+.detector:not(.detector-compact) .track { stroke-width: calc(var(--track-width, 3.5px) + var(--detector-weight, 0) * 24.5px); }
+.detector:not(.detector-compact) .detector-ring { stroke-width: calc(1.25px + var(--detector-weight, 0) * 4.75px); }
+.detector:not(.detector-compact) .detector-vertex { r: calc(5px + var(--detector-weight, 0) * 17px); }
+.detector-compact .track { transition: none; stroke-dashoffset: 0; }
 
 @media (prefers-reduced-motion: reduce) {
-  .track {
-    transition: none;
-    stroke-dashoffset: 0;
-  }
-  .hit,
-  .fired .hit {
-    animation: none;
-    opacity: 0.9;
-  }
-  .fired .vertex-flash {
-    animation: none;
-  }
+  *, *::before, *::after { scroll-behavior: auto !important; }
+  .track { transition: none; stroke-dashoffset: 0; }
+  .detector-ring, .detector-tick, .fired .detector-arrival { animation: none; }
+  .detector-arrival { opacity: 1; }
+  .react-grid-item { transition: none !important; }
 }

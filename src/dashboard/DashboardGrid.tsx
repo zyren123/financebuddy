@@ -2,13 +2,14 @@ import { useEffect, useMemo, useState } from 'react'
 import { GridLayout, useContainerWidth } from 'react-grid-layout'
 import type { Layout } from 'react-grid-layout'
 import 'react-grid-layout/css/styles.css'
-import { RANGE_OPTIONS } from '../charts/convert'
 import type { RangeKey } from '../charts/convert'
 import { CloseIcon, SlidersIcon, CheckIcon } from '../ui/icons'
 import { CardSettings } from './CardSettings'
 import { CardView } from './CardView'
 import { cardTitle } from './types'
 import type { CardConfig } from './types'
+import { RangeTabs } from './RangeTabs'
+import { SettingsReveal } from '../motion/SettingsReveal'
 
 interface Props {
   cards: CardConfig[]
@@ -70,32 +71,14 @@ export function DashboardGrid({
         >
           <h3 className="num truncate text-[12px] font-medium text-ink">{cardTitle(card)}</h3>
           <div className="flex shrink-0 items-center gap-1">
-            {!settingsOpen && (
-              <div className="num flex text-[11px]" role="group" aria-label="时间区间">
-                {RANGE_OPTIONS.map((opt) => {
-                  const on = effectiveRange === opt.key
-                  return (
-                    <button
-                      key={opt.key}
-                      type="button"
-                      aria-pressed={on}
-                      className={`border-b px-1.5 py-1 transition-colors duration-150 ${
-                        on ? 'border-copper text-ink' : 'border-transparent text-ink-faint hover:text-ink-muted'
-                      }`}
-                      onClick={() => onRangeSelect(card.id, opt.key)}
-                    >
-                      {opt.label}
-                    </button>
-                  )
-                })}
-              </div>
-            )}
+            <RangeTabs value={effectiveRange} onChange={(key) => onRangeSelect(card.id, key)} />
             {editMode && (
               <button
                 type="button"
                 className="p-1.5 text-ink-muted hover:text-ink"
                 title="卡片设置(Ticker / 参数)"
                 aria-label={settingsOpen ? '完成卡片设置' : '卡片设置'}
+                aria-expanded={settingsOpen}
                 onClick={() => setSettingsOpenId(settingsOpen ? null : card.id)}
               >
                 {settingsOpen ? <CheckIcon /> : <SlidersIcon />}
@@ -115,11 +98,10 @@ export function DashboardGrid({
           </div>
         </header>
         <div className={`relative min-h-0 flex-1 ${editMode ? 'px-2 pb-2' : ''}`}>
-          {settingsOpen ? (
+          <CardView card={withRange(card, effectiveRange)} />
+          {editMode && <SettingsReveal open={settingsOpen}>
             <CardSettings card={card} onChange={(patch) => onCardChange(card.id, patch)} />
-          ) : (
-            <CardView card={withRange(card, effectiveRange)} />
-          )}
+          </SettingsReveal>}
         </div>
       </article>
     )

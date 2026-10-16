@@ -14,6 +14,32 @@ export const INNER = 36
 /** 径迹卷曲角(弧所对圆心角),固定值:曲率只表达方向,长度表达大小 */
 const CURL = (70 * Math.PI) / 180
 
+/** Fixed cubic topology interpolates continuously, including across sign changes. */
+export function trackCoordinates(value: number, emit: number, step: number, rings: number): number[] {
+  const geom = track(value, emit, step, rings)
+  const sign = value < 0 ? 1 : -1
+  const handle = (geom.radius / (2 * Math.sin(CURL / 2))) * (4 / 3) * Math.tan(CURL / 4)
+  return [
+    CENTER + Math.cos(emit) * handle,
+    CENTER + Math.sin(emit) * handle,
+    geom.end.x - Math.cos(emit + sign * CURL) * handle,
+    geom.end.y - Math.sin(emit + sign * CURL) * handle,
+    geom.end.x,
+    geom.end.y,
+  ]
+}
+
+export function curvePath(points: readonly number[]): string {
+  return `M ${CENTER} ${CENTER} C ${points.slice(0, 6).join(' ')}`
+}
+
+/** The node circle and the expanded readout retain the same path topology. */
+export function readoutOutline(x: number, y: number, width: number, height: number, radius: number): string {
+  const r = Math.max(0, Math.min(radius, width / 2, height / 2))
+  const k = 0.55228475 * r
+  return `M ${x + r} ${y} H ${x + width - r} C ${x + width - r + k} ${y} ${x + width} ${y + r - k} ${x + width} ${y + r} V ${y + height - r} C ${x + width} ${y + height - r + k} ${x + width - r + k} ${y + height} ${x + width - r} ${y + height} H ${x + r} C ${x + r - k} ${y + height} ${x} ${y + height - r + k} ${x} ${y + height - r} V ${y + r} C ${x} ${y + r - k} ${x + r - k} ${y} ${x + r} ${y} Z`
+}
+
 const NICE_STEPS = [1, 2, 2.5, 5, 10, 20, 25, 50]
 
 /** 环的档距:让最大读数落在最外几环之内,且至少 3 环、至多 6 环 */

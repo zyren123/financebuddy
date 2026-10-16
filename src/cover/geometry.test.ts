@@ -51,3 +51,19 @@ describe('track', () => {
     expect(pos.d).toContain(' 0 0 0 ')
   })
 })
+
+describe('morph geometry', () => {
+  it('uses an identical cubic topology for positive, zero and negative data', async () => {
+    const { trackCoordinates, curvePath } = await import('./geometry')
+    for (const value of [-9, 0, 9]) {
+      const emit = emitAngle(1, 3)
+      const coords = trackCoordinates(value, emit, 2, 5)
+      const endpoint = track(value, emit, 2, 5).end
+      expect(coords).toHaveLength(6)
+      expect(coords.every(Number.isFinite)).toBe(true)
+      expect(coords[4]).toBe(endpoint.x)
+      expect(coords[5]).toBe(endpoint.y)
+      expect(curvePath(coords).match(/[A-Za-z]/g)).toEqual(['M', 'C'])
+    }
+  })
+})

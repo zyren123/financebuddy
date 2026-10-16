@@ -1,49 +1,35 @@
-import { useEffect, useRef, useState } from 'react'
+import { useLayoutEffect, useRef } from 'react'
+import { createSpring } from '../motion/spring'
 
-const reducedMotion = () => window.matchMedia('(prefers-reduced-motion: reduce)').matches
-
-/** 带符号的百分比读数(用真正的减号,等宽字下与加号同宽) */
+/** 带符号的百分比读数，使用真正的减号。 */
 export function formatSigned(v: number, digits = 2): string {
   const s = Math.abs(v).toFixed(digits)
   return v < 0 ? `−${s}` : v > 0 ? `+${s}` : s
 }
 
-/**
- * 读数从 0 滚到目标值,与径迹卷出同步(指数缓出)。
- * run=false 时停在 0;减少动态偏好下直接显示终值。
- */
-export function CountUp({
-  value,
-  run,
-  delay = 0,
-  duration = 1100,
-  digits = 2,
-}: {
-  value: number
-  run: boolean
-  delay?: number
-  duration?: number
-  digits?: number
+export function CountUp({ value, run, delay = 0, digits = 2 }: {
+  value: number; run: boolean; delay?: number; digits?: number
 }) {
-  const [shown, setShown] = useState(0)
-  const raf = useRef(0)
-
-  useEffect(() => {
-    if (!run) return
-    if (reducedMotion()) {
-      setShown(value)
+  const element = useRef<HTMLSpanElement>(null)
+  const spring = useRef<ReturnType<typeof createSpring> | null>(null)
+  const started = useRef(false)
+  useLayoutEffect(() => {
+    const el = element.current
+    if (!el) return
+    spring.current = createSpring([0], ([shown]) => { el.textContent = formatSigned(shown, digits) })
+    return () => { spring.current?.stop(); spring.current = null; started.current = false }
+  }, [digits])
+  useLayoutEffect(() => {
+    if (!run) { spring.current?.set([0]); started.current = false; return }
+    if (started.current || matchMedia('(prefers-reduced-motion: reduce)').matches) {
+      spring.current?.set([value])
       return
     }
-    const start = performance.now() + delay
-    const tick = (now: number) => {
-      const t = Math.min(1, Math.max(0, (now - start) / duration))
-      const eased = 1 - Math.pow(2, -10 * t)
-      setShown(value * (t >= 1 ? 1 : eased))
-      if (t < 1) raf.current = requestAnimationFrame(tick)
-    }
-    raf.current = requestAnimationFrame(tick)
-    return () => cancelAnimationFrame(raf.current)
-  }, [value, run, delay, duration])
-
-  return <>{formatSigned(shown, digits)}</>
+    const timer = window.setTimeout(() => {
+      started.current = true
+      spring.current?.set([value])
+    }, delay)
+    return () => clearTimeout(timer)
+  }, [value, run, delay, digits])
+  return <span aria-label={formatSigned(value, digits)} ref={element}>{formatSigned(value, digits)}</span>
 }
