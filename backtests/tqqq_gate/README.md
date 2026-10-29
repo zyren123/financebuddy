@@ -119,6 +119,17 @@ backtests/tqqq_gate/.venv/bin/python backtests/tqqq_gate/backtest.py --synthetic
 
 未实施税务递延变体、定投、参数优化或 walk-forward 搜索。当前回测验证的是固定规则和这些明确假设下的历史表现，不是独立样本证明。
 
+## 规则族预注册筛选
+
+`screen.py` 在同一口径下比较 48 个事先固定的规则，包括均线、双均线、时间序列动量、波动目标、固定比例再平衡、趋势×波动目标、三门和 SPYSIM SMA200 ±4%。规则族与网格写在 `rules.py`，看过结果后不要再改网格。样本内为 1986–2010 合成 TQQQ，样本外为 2010-02-11 起的真实 TQQQ。程序输出各族样本内最优的样本外表现、IS/OOS Sharpe 秩相关、Deflated Sharpe、CSCV PBO 和成本/延迟敏感性。`weights.py` 模拟分数仓位的每日漂移和区间再平衡；仓位只取 0/1 时，结果与 `portfolio()` 逐日相同。结论与过拟合说明见[规则族筛选笔记](../../docs/research/tqqq-rule-screen.md)。
+
+```sh
+# 默认读 data/yahoo，输出到 results/rule_screen/，约 3 秒。
+backtests/tqqq_gate/.venv/bin/python backtests/tqqq_gate/screen.py
+```
+
+输出包括 `candidates.csv`（每个规则 × IS/OOS/全区间）、`finalists.csv`、`sensitivity.csv`、`overfit.json` 和 `summary.md`。可用 `--split`、`--execution-lag`、`--switch-cost-bps`、`--cscv-blocks` 修改设置。`--split` 之后的 TQQQ 收益必须全部来自真实基金，否则报错。
+
 ## 验证
 
 `audit_next_open.py` 单独比较真实 TQQQ 存续期的信号当日收盘、次日开盘和次日收盘执行。使用缓存 OHLC，先计算旧仓的隔夜收益，再按开盘价换仓、计算新仓日内收益；每日短债计息在隔夜/日内间的分配另做敏感性检查。输出到 `results/next_open_audit/`，不改变主报告。上市前合成序列只有日收益，不能据此确定开盘成交结果。
