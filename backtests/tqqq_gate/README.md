@@ -130,6 +130,12 @@ backtests/tqqq_gate/.venv/bin/python backtests/tqqq_gate/screen.py
 
 输出包括 `candidates.csv`（每个规则 × IS/OOS/全区间）、`finalists.csv`、`sensitivity.csv`、`overfit.json` 和 `summary.md`。可用 `--split`、`--execution-lag`、`--switch-cost-bps`、`--cscv-blocks` 修改设置。`--split` 之后的 TQQQ 收益必须全部来自真实基金，否则报错。
 
+`three_gate_params.py` 对三门参数做单参数扫描和 100 组三阈值网格，分 2010 前合成、2010 后真实与全区间报告，输出到 `results/three_gate_params/`：
+
+```sh
+backtests/tqqq_gate/.venv/bin/python backtests/tqqq_gate/three_gate_params.py
+```
+
 ## 验证
 
 `audit_next_open.py` 单独比较真实 TQQQ 存续期的信号当日收盘、次日开盘和次日收盘执行。使用缓存 OHLC，先计算旧仓的隔夜收益，再按开盘价换仓、计算新仓日内收益；每日短债计息在隔夜/日内间的分配另做敏感性检查。输出到 `results/next_open_audit/`，不改变主报告。上市前合成序列只有日收益，不能据此确定开盘成交结果。
