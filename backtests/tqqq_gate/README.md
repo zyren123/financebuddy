@@ -136,6 +136,12 @@ backtests/tqqq_gate/.venv/bin/python backtests/tqqq_gate/screen.py
 backtests/tqqq_gate/.venv/bin/python backtests/tqqq_gate/three_gate_params.py
 ```
 
+`bootstrap.py` 把历史交易日按块打乱或平稳自助重组成平行世界，比较三门、NDX SMA200 ±4%、固定 50% TQQQ 与持有，输出到 `results/bootstrap/`，默认 8 组 × 500 个世界约 160 秒：
+
+```sh
+backtests/tqqq_gate/.venv/bin/python backtests/tqqq_gate/bootstrap.py
+```
+
 ## 验证
 
 `audit_next_open.py` 单独比较真实 TQQQ 存续期的信号当日收盘、次日开盘和次日收盘执行。使用缓存 OHLC，先计算旧仓的隔夜收益，再按开盘价换仓、计算新仓日内收益；每日短债计息在隔夜/日内间的分配另做敏感性检查。输出到 `results/next_open_audit/`，不改变主报告。上市前合成序列只有日收益，不能据此确定开盘成交结果。
