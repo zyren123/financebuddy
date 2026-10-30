@@ -21,6 +21,11 @@ class BacktestTests(unittest.TestCase):
         verdict = pd.Series([1, 1, 1, 1])
         self.assertEqual(confirm(verdict, pd.Series([False, False, True, True])).tolist(), [0, 0, 0, 1])
 
+    def test_asymmetric_sma_band_exits_at_its_own_lower_band(self):
+        close = pd.Series([100, 100, 100, 112, 100, 95, 95], dtype=float)
+        self.assertEqual(sma_band_signals(close, 3, 0.04).signal.tolist(), [0, 0, 0, 1, 1, 0, 0])
+        self.assertEqual(sma_band_signals(close, 3, 0.04, exit_band=0.03).signal.tolist(), [0, 0, 0, 1, 0, 0, 0])
+
     def test_next_close_trade_earns_only_following_session_return(self):
         index = pd.bdate_range("2024-01-02", periods=5)
         signal = pd.Series([0, 1, 1, 0, 0], index=index)

@@ -71,11 +71,11 @@ def drawdown_gate(drawdown, valid, params=Parameters()):
     return pd.Series(dd_states, index=drawdown.index)
 
 
-def sma_band_signals(close, window=200, band=0.04):
+def sma_band_signals(close, window=200, band=0.04, exit_band=None):
     """Enter above the upper SMA band; exit below the lower; retain state between."""
     average = close.rolling(window, min_periods=window).mean()
     upper = average * (1 + band)
-    lower = average * (1 - band)
+    lower = average * (1 - (band if exit_band is None else exit_band))
     state = 0
     states = []
     for price, high, low in zip(close, upper, lower):
