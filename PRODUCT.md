@@ -37,11 +37,12 @@ web
 
 - 三种 Card：K 线卡（蜡烛 + 成交量）、Ratio ROC 卡、指标卡（RSI / ROC / SMA / EMA，参数可调）。归一化对比卡已明确排除。
 - Dashboard 默认「核对图表」，另有「美股指标」页签，按行对照标普 500 与纳斯达克 100 的 RSI(6)、52 周回撤、TTM PE 和近 10 年 PE 百分位，并单列 VIX、CNN 恐惧贪婪指数。页签切换保留图表状态，属于 Browse State，不进入发布布局；Edit Mode 下先返回浏览再切换。
+- Admin 另有「TQQQ 研究」页签：以实验记录形式展示 TQQQ 择时规则的研究结论，并能在浏览器里构造平行世界复跑三门、SMA200 与持有 QQQ / TQQQ 的回测。访客看不到这个页签，也不会下载它的代码；数据文件仍在公开站点的 /research/ 下。
 - 两种 Preset：四宫格、自上而下，仅 Edit Mode 可用。
 - 网格可拖拽、可调宽高（react-grid-layout），图表用 lightweight-charts，十字线联动读数。
 - 术语以 `CONTEXT.md` 为准（Ticker、Ratio、Card、Draft、Publish 等），界面文案为中文（`lang="zh-CN"`）。
 - 未来可能升级为多账号、每人一份布局，目前未决定。
-- 链接会发到公开群里，访客可能是不熟悉 Ratio ROC 的人。是否需要"非投资建议"类声明：未决定。
+- 链接会发到公开群里，访客可能是不熟悉 Ratio ROC 的人。访客页面是否需要"非投资建议"类声明：未决定。Admin 的「TQQQ 研究」页签不加这类声明（作者 2026-10-30 决定），术语改用通俗解释。
 
 ## Brand Commitments
 
@@ -51,7 +52,8 @@ web
 ## Evidence on Hand
 
 - 图表行情通过 Twelve Data 获取；出厂布局在 `public/default-dashboard.json`。补充的美股指标采用真实指数与各发布者数据，来源核验见 [记录](docs/research/us-market-indicator-sources.md)，不以 ETF 或固定演示读数代替。
-- 没有用户数、证言、回测业绩或收益数据。任何界面都不得虚构这些内容，也不得把 Ratio ROC 包装成有业绩背书的信号。
+- 没有用户数、证言或收益数据。任何界面都不得虚构这些内容，也不得把 Ratio ROC 包装成有业绩背书的信号。
+- 回测数据只有一种来源：`backtests/tqqq_gate` 的 Python 研究导出的 `public/research/archive.json` 与 `dataset.json`，以及浏览器按同一口径现算的结果。研究页签上的每个数字都从这两处读出或现算，不手写；它们是历史回测与模拟，不是业绩记录。
 
 ## Product Principles
 

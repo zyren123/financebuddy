@@ -2,7 +2,7 @@ import type { ReactNode } from 'react'
 import { PlusIcon } from '../../ui/icons'
 
 /** 一条实验记录:结论标题 → 配置条 → 解读 → 图表。运行号承载顺序信息,不作装饰眉标 */
-export function RunSection({ id, run, title, config, children, lede }: {
+export function RunSection({ id, run, title, config, children, lede, archiveOnly }: {
   id: string
   run: string
   title: ReactNode
@@ -10,17 +10,20 @@ export function RunSection({ id, run, title, config, children, lede }: {
   config?: string[]
   lede: ReactNode
   children?: ReactNode
+  /** 结果只来自 Python 归档,浏览器不复跑 */
+  archiveOnly?: boolean
 }) {
   return (
     <section id={id} aria-labelledby={`${id}-title`} className="scroll-mt-24 pt-16 first:pt-0 md:pt-24">
-      <h2 id={`${id}-title`} className="max-w-[24ch] font-display text-[30px] leading-[1.08] text-ink md:text-[40px]">{title}</h2>
+      <h2 id={`${id}-title`} className="max-w-[24ch] font-display text-[clamp(2rem,4vw,3rem)] leading-[1.05] text-ink">{title}</h2>
       {config && (
         <div className="num mt-5 flex flex-wrap gap-x-5 gap-y-1 border-t border-copper-dim pt-3 text-[11px] text-ink-muted">
           <span className="text-copper">{run}</span>
           {config.map((c) => <span key={c}>{c}</span>)}
+          {archiveOnly && <span className="text-ink-faint">Python 归档结果 · 浏览器不复跑</span>}
         </div>
       )}
-      <div className="mt-5 max-w-[38em] space-y-3 text-[15px] leading-[1.8] text-ink-muted [&_strong]:font-medium [&_strong]:text-ink">{lede}</div>
+      <div className="mt-5 max-w-[38em] space-y-3 text-[17px] leading-[1.625] text-ink-muted [&_strong]:font-medium [&_strong]:text-ink">{lede}</div>
       {children && <div className="mt-10">{children}</div>}
     </section>
   )
@@ -46,7 +49,7 @@ export function Stat({ label, value, note }: { label: ReactNode; value: string; 
   return (
     <div className="border-t border-edge pt-3">
       <div className="text-[11px] leading-relaxed text-ink-faint">{label}</div>
-      <div className="num mt-1.5 text-[24px] font-medium leading-none text-ink md:text-[28px]">{value}</div>
+      <div className="num mt-1.5 text-[clamp(1.5rem,4vw,2.25rem)] font-medium leading-none text-ink">{value}</div>
       {note && <div className="mt-1.5 text-[11px] leading-relaxed text-ink-faint">{note}</div>}
     </div>
   )

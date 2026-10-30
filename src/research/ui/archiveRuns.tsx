@@ -86,6 +86,7 @@ export function ScreenRun({ a }: { a: Archive }) {
     <RunSection
       id="run-01"
       run="RUN 01"
+      archiveOnly
       title="按样本内挑规则，在真实 TQQQ 上挑不出赢家"
       config={[`${s.nTrials} 个预注册试验`, `${segmentLabel(a, 'pre2010')}选参`, `${segmentLabel(a, 'post2010')}检验`, '按样本内 Sharpe 选优', 'screen.py']}
       lede={<>
@@ -173,6 +174,7 @@ export function ParamsRun({ a, colors }: { a: Archive; colors: { gate: string; t
     <RunSection
       id="run-02"
       run="RUN 02"
+      archiveOnly
       title="三门压回撤的作用换参数也成立，2010 年后的收益优势不成立"
       config={[`${p.grid.size} 组三阈值网格`, '7 个参数逐个扫描', '2010 前后分段', 'three_gate_params.py']}
       lede={<>
@@ -230,6 +232,7 @@ export function MatchedRun({ a }: { a: Archive }) {
     <RunSection
       id="run-03"
       run="RUN 03"
+      archiveOnly
       title="回撤相近时择时的贡献不大，换到标普上优势几乎消失"
       config={['固定比例 TQQQ / T-bill · 再平衡带 10 个百分点', '标普 500 信号 · 合成 3 倍标普总收益', `${a.params.grid.size} 组网格`]}
       lede={<>

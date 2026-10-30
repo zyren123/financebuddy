@@ -33,7 +33,7 @@ function Readout({ label, value, format, note }: { label: string; value: number 
   return (
     <div className="border-t border-edge pt-3">
       <div className="text-[11px] text-ink-faint">{label}</div>
-      <LiveNumber value={value} format={format} className="num mt-1.5 block text-[26px] font-medium leading-none text-ink md:text-[30px]" />
+      <LiveNumber value={value} format={format} className="num mt-1.5 block text-[clamp(1.5rem,4vw,2.25rem)] font-medium leading-none text-ink" />
       {note && <div className="num mt-1.5 text-[11px] text-ink-faint">{note}</div>}
     </div>
   )
@@ -170,18 +170,17 @@ export function LiveRun({ runNumber, initialWorld, initialRules, autorun, archiv
               <span className="flex items-center gap-1.5"><span aria-hidden className="w-3 border-t border-dashed border-copper" />$1 起点</span>
               {view.status === 'done' && <span className="ml-auto text-ink-faint">浏览器复算 {view.done.toLocaleString('en-US')} 个世界 · {seconds(view.elapsedMs)}</span>}
             </figcaption>
-          </figure>
-
-          <div className="grid grid-cols-2 content-start gap-x-6 gap-y-5 lg:grid-cols-1">
-            <Readout label="平行世界回撤中位" value={focusSummary?.maxDrawdown.p50 ?? null} format={(v) => pct(v)} note={focusActual ? `真实历史 ${pct(focusActual.maxDrawdown)}` : undefined} />
-            <Readout label="平行世界年化中位" value={focusSummary?.cagr.p50 ?? null} format={(v) => pct(v)} note={focusActual ? `真实历史 ${pct(focusActual.cagr)}` : undefined} />
-            <Readout label="回撤深于 −70% 的世界" value={focusSummary?.pDrawdownWorse70 ?? null} format={share} />
-            <Readout label="真实历史的回撤分位" value={focusSummary?.actualDrawdownPercentile ?? null} format={share} note="比多少平行世界浅" />
             {reference && view.status === 'done' && (
-              <p className="col-span-2 border-t border-edge pt-3 text-[11px] leading-relaxed text-ink-faint lg:col-span-1">
+              <p className="mt-2 text-[11px] leading-relaxed text-ink-faint">
                 Python 归档同口径 {reference.run.worlds} 个世界：回撤中位 <span className="num text-ink-muted">{pct(reference.summary.maxDrawdown.p50)}</span>，年化中位 <span className="num text-ink-muted">{pct(reference.summary.cagr.p50)}</span>。两边的随机数发生器不同，数值接近但不逐位相同。
               </p>
             )}
+          </figure>
+
+          <div className="grid grid-cols-2 content-start gap-x-6 gap-y-5 lg:flex lg:h-[340px] lg:flex-col lg:justify-between lg:gap-0">
+            <Readout label="平行世界回撤中位" value={focusSummary?.maxDrawdown.p50 ?? null} format={(v) => pct(v)} note={focusActual && focusSummary ? `真实 ${pct(focusActual.maxDrawdown)} · 好过 ${share(focusSummary.actualDrawdownPercentile)} 的世界` : undefined} />
+            <Readout label="平行世界年化中位" value={focusSummary?.cagr.p50 ?? null} format={(v) => pct(v)} note={focusActual ? `真实 ${pct(focusActual.cagr)}` : undefined} />
+            <div className="col-span-2 lg:col-span-1"><Readout label="回撤深于 −70% 的世界" value={focusSummary?.pDrawdownWorse70 ?? null} format={share} /></div>
           </div>
         </div>
 

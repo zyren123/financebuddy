@@ -137,29 +137,30 @@ function Console({ a }: { a: Archive }) {
   const gateMdd = gateRows.map((s) => s.maxDrawdown.p50)
   const gatePct = gateRows.map((s) => s.actualDrawdownPercentile)
   const smaPct = smaRows.map((s) => s.actualDrawdownPercentile)
+  const smaMdd = smaRows.map((s) => s.maxDrawdown.p50)
 
   return (
-    <div className="grid grid-cols-[minmax(0,1fr)] gap-x-14 gap-y-8 lg:grid-cols-[180px_minmax(0,1fr)]">
+    <div className="grid grid-cols-[minmax(0,1fr)] gap-x-12 gap-y-8 lg:grid-cols-[220px_minmax(0,1fr)]">
       <aside className="min-w-0 lg:sticky lg:top-[88px] lg:self-start">
         <RunNav items={nav} active={active} />
-        <p className="num mt-6 hidden text-[10px] leading-relaxed text-ink-faint lg:block">
+        <p className="num mt-6 hidden text-[11px] leading-relaxed text-ink-faint lg:block">
           归档 {a.generated.date}<br />commit {a.generated.commit.slice(0, 7)}<br />{a.generated.start} — {a.generated.end}
         </p>
       </aside>
 
       <div className="min-w-0">
         <header>
-          <h2 className="max-w-[22ch] font-display text-[34px] leading-[1.08] text-ink md:text-[44px] xl:max-w-none">三门能挡住 TQQQ 归零，{actualGate ? `${pct(actualGate.maxDrawdown, 0)} ` : ''}的回撤却是幸运路径</h2>
-          <p className="mt-4 max-w-[42em] text-[16px] leading-[1.7] text-ink-muted md:text-[17px]">
-            把 1986–2026 年的交易日成段打乱，造出几千条<Term k="bootstrap">平行世界</Term>。三门的回撤中位落在 <span className="num text-ink">{pct(Math.max(...gateMdd), 0)} 到 {pct(Math.min(...gateMdd), 0)}</span>，真实历史排在它分布的第 <span className="num text-ink">{share(Math.min(...gatePct))}–{share(Math.max(...gatePct))}</span>。SMA200 的回撤更深，但真实历史处在它分布的 <span className="num text-ink">{share(Math.min(...smaPct))}–{share(Math.max(...smaPct))}</span>，更接近正常水平。
+          <h2 className="max-w-[20ch] font-display text-[clamp(2rem,4vw,3rem)] leading-[1.05] text-ink xl:max-w-none">三门挡得住归零，{actualGate ? `${pct(actualGate.maxDrawdown, 0)} ` : ''}回撤却是幸运路径</h2>
+          <p className="mt-4 max-w-[52em] text-[17px] leading-[1.625] text-ink-muted">
+            在打乱历史顺序造出的<Term k="bootstrap">平行世界</Term>里，三门的回撤中位是 <span className="num text-ink">{pct(Math.max(...gateMdd), 0)} 到 {pct(Math.min(...gateMdd), 0)}</span>，真实历史好过其中 <span className="num text-ink">{share(Math.min(...gatePct))}–{share(Math.max(...gatePct))}</span> 的世界，实际使用应按这个区间准备。SMA200 更深，回撤中位 <span className="num text-ink">{pct(Math.max(...smaMdd), 0)} 到 {pct(Math.min(...smaMdd), 0)}</span>，但真实历史只好过 <span className="num text-ink">{share(Math.min(...smaPct))}–{share(Math.max(...smaPct))}</span> 的世界，更接近它的常态。
           </p>
         </header>
 
         {featured && (
           <section id="run-05" aria-label="RUN 05 参数 × 平行世界" className="scroll-mt-24 pt-7">
             <LiveRun runNumber="RUN 05" initialWorld={worldOf(featured)} initialRules={defaultRules()} autorun archive={a} />
-            <div className="mt-14 max-w-[38em] space-y-3 text-[15px] leading-[1.8] text-ink-muted">
-              <h3 className="font-display text-[26px] leading-[1.1] text-ink md:text-[32px]">换参数，衰退还在</h3>
+            <div className="mt-14 max-w-[38em] space-y-3 text-[17px] leading-[1.625] text-ink-muted">
+              <h3 className="font-display text-[clamp(2rem,4vw,3rem)] leading-[1.05] text-ink">换参数，衰退还在</h3>
               <p>Python 归档在同一批世界里比较了三门的 {featured.summary.filter((s) => s.ruleId.startsWith('three_gate')).length} 个参数变体。每个变体的平行世界回撤都比它的真实历史深得多，衰退分布在整个参数族，不是作者参数特别走运。真实历史上最好的变体衰退最多，这是按历史挑参数的典型后果。</p>
               <p>上面的实验台可以换构造方式、段长和规则。改完点“运行新配置”，扇面和读数会随世界流入逐步收敛。</p>
             </div>

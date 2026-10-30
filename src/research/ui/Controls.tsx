@@ -1,4 +1,5 @@
 import { useId, useState } from 'react'
+import { useMediaQuery } from '../../ui/useMediaQuery'
 import type { ReactNode } from 'react'
 import { ChevronDownIcon, CloseIcon, DiceIcon, PlayIcon, PlusIcon, SlidersIcon, StopIcon } from '../../ui/icons'
 import { DEFAULT_GATE } from '../types'
@@ -62,12 +63,23 @@ export function ConfigStrip({ world, onWorld, status, done, total, onRun, onStop
 }) {
   const busy = status === 'loading' || status === 'running'
   const progress = total > 0 ? done / total : 0
+  // 手机上默认只显示一行摘要,展开后才改配置,扇面留在首屏
+  const narrow = useMediaQuery('(max-width: 767px)')
+  const [open, setOpen] = useState(false)
+  const showFields = !narrow || open
+  const fieldsId = useId()
   return (
     <div className="relative border-t border-copper-dim pt-4">
       <span aria-hidden className="absolute left-0 top-[-1px] h-px origin-left bg-copper transition-transform duration-200 ease-out" style={{ width: '100%', transform: `scaleX(${busy ? progress : 0})` }} />
-      <div className="flex flex-wrap items-end gap-x-6 gap-y-4">
+      <div className="flex flex-wrap items-end gap-x-3 gap-y-4 md:gap-x-6">
         <span className="num self-center pb-1 text-[12px] text-copper">{runNumber}</span>
-        <div className="grid grid-cols-2 gap-x-5 gap-y-3 sm:grid-cols-3 lg:flex lg:flex-wrap lg:items-end lg:gap-x-6">
+        {narrow && (
+          <button type="button" aria-expanded={open} aria-controls={fieldsId} onClick={() => setOpen((v) => !v)} className="num flex min-w-0 items-center gap-1.5 self-center pb-1 text-left text-[11px] text-ink-muted transition-colors hover:text-ink">
+            <span className="truncate">{WORLD_OPTIONS.method.find((m) => m.value === world.method)?.label} · {blockLabel(world.block)} · {world.worlds.toLocaleString('en-US')} 个世界</span>
+            <ChevronDownIcon className={`shrink-0 transition-transform duration-200 ${open ? 'rotate-180' : ''}`} />
+          </button>
+        )}
+        <div id={fieldsId} hidden={!showFields} className="grid w-full grid-cols-2 gap-x-5 gap-y-3 sm:grid-cols-3 md:w-auto lg:flex lg:flex-wrap lg:items-end lg:gap-x-6">
           <Field label="构造方式">{(id) => <Select id={id} value={world.method} disabled={busy} title={WORLD_OPTIONS.method.find((m) => m.value === world.method)?.detail} options={WORLD_OPTIONS.method.map((m) => ({ value: m.value, label: m.label }))} onChange={(method) => onWorld({ ...world, method })} />}</Field>
           <Field label={world.method === 'permute' ? '段长' : '平均段长'}>{(id) => <Select id={id} value={world.block} disabled={busy} options={WORLD_OPTIONS.block.map((b) => ({ value: b, label: blockLabel(b) }))} onChange={(block) => onWorld({ ...world, block })} />}</Field>
           <Field label="世界数">{(id) => <Select id={id} value={world.worlds} disabled={busy} options={WORLD_OPTIONS.worlds.map((w) => ({ value: w, label: w.toLocaleString('en-US') }))} onChange={(worlds) => onWorld({ ...world, worlds })} />}</Field>
@@ -121,7 +133,7 @@ export function RuleChips({ rules, focus, onFocus, onChange, onRemove, onAdd, ed
         {rules.map((rule) => {
           const active = rule.spec.id === focus
           return (
-            <li key={rule.spec.id} className={`flex shrink-0 items-stretch border transition-colors ${active ? 'border-ink-muted' : 'border-edge hover:border-field'}`}>
+            <li key={rule.spec.id} className={`flex shrink-0 items-stretch border transition-colors ${active ? 'border-copper' : 'border-edge hover:border-field'}`}>
               <button type="button" aria-pressed={active} title={`${ruleDetail(rule.spec)}。点按在扇面里查看`} onClick={() => onFocus(rule.spec.id)} className={`flex items-center gap-2 py-1.5 pl-2.5 pr-2 text-[12px] transition-colors ${active ? 'text-ink' : 'text-ink-muted hover:text-ink'}`}>
                 <span aria-hidden className="h-[2px] w-3" style={{ background: slotColor(rule.slot) }} />
                 {ruleLabel(rule.spec)}
