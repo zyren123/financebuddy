@@ -47,6 +47,18 @@ def evaluate(sample):
     return {name: metrics(f, cash) for name, f in frames.items()}
 
 
+def days_frame(history, data_dir):
+    """One row per session of same-day returns, from NDX's second close; the unit both resamplers reorder."""
+    spy, _, _ = load_sma_input(data_dir, history.index[-1])
+    # QQQ basis: NDX price returns before QQQ listed, real QQQ adjusted returns after (the 1x underlying already spliced).
+    days = pd.DataFrame({"ndx": history.ndx_close.pct_change(fill_method=None), "tqqq": history.tqqq_return,
+                         "qqq": history.underlying_return, "spy": spy.pct_change(fill_method=None).reindex(history.index),
+                         "cash": history.cash_return}).iloc[1:]
+    if days.isna().any().any():
+        raise ValueError("Missing same-day returns; refusing to resample a gap")
+    return days
+
+
 def _init(days):
     global DAYS
     DAYS = days
@@ -96,13 +108,7 @@ def main():
     parser.add_argument("--processes", type=int, default=8)
     args = parser.parse_args()
     history, _, _ = build_history(args.data_dir, args.end)
-    spy, _, _ = load_sma_input(args.data_dir, history.index[-1])
-    # QQQ basis: NDX price returns before QQQ listed, real QQQ adjusted returns after (the 1x underlying already spliced).
-    days = pd.DataFrame({"ndx": history.ndx_close.pct_change(fill_method=None), "tqqq": history.tqqq_return,
-                         "qqq": history.underlying_return, "spy": spy.pct_change(fill_method=None).reindex(history.index),
-                         "cash": history.cash_return}).iloc[1:]
-    if days.isna().any().any():
-        raise ValueError("Missing same-day returns; refusing to resample a gap")
+    days = days_frame(history, args.data_dir)
     jobs = [("actual", 0, args.seed)] + [(s, w, args.seed) for s in SCHEMES for w in range(args.worlds)]
     with Pool(args.processes, initializer=_init, initargs=(days,)) as pool:
         rows = [r for batch in pool.imap(_world, jobs, chunksize=8) for r in batch]

@@ -148,6 +148,20 @@ backtests/tqqq_gate/.venv/bin/python backtests/tqqq_gate/bootstrap.py
 backtests/tqqq_gate/.venv/bin/python backtests/tqqq_gate/bootstrap_params.py
 ```
 
+## 研究控制台导出
+
+`export_console.py` 为网页「TQQQ 研究」页生成三个 JSON，约 10 秒。先复跑 `screen.py`、`three_gate_params.py`、`bootstrap.py`、`bootstrap_params.py`，它们是确定性的，导出直接读取其 `results/` 输出：
+
+```sh
+backtests/tqqq_gate/.venv/bin/python backtests/tqqq_gate/export_console.py
+```
+
+- `public/research/dataset.json`：`bootstrap_params.py` 重排的同一张逐日收益表（NDX、TQQQ、1× 基础、SPYSIM、现金，从 NDX 第二个收盘起）。收益四舍五入到 10 位有效数字，浏览器引擎与 Python 读入的是同一组数。`evalStart` = 252，即 `bootstrap.py` 在延迟 1 时的 START；网页引擎按 251 + 执行延迟取评估起点。
+- `public/research/archive.json`：RUN 01–05 的归档数字，形状见 `src/research/types.ts` 的 `Archive`。RUN 03（`matched.py`）在导出时计算：固定 TQQQ 权重 0.3–0.6（再平衡带 0.10），以及把三门移到 ^GSPC 价格信号、交易合成 3× SPYSIM 总收益的跨资产检验，网格同 `three_gate_params.GRID`。持有 QQQ 与 1× 标普的仓位记 0。
+- `src/research/engine/__fixtures__/parity.json`：TS 引擎的对拍基准。用舍入后的收益，对归档中的每条规则加 `fixed_50pct`，计算真实顺序与一个固定打乱（`permuted_blocks(n, 63, default_rng(12345))`，索引一并存入）的指标，另有两条规则在延迟 0 和 2 下的真实顺序结果。
+
+导出前会断言：通用规则执行器在真实顺序和一个打乱世界上与 `bootstrap.run_world`、`bootstrap_params.evaluate` 逐位相同；各次运行的真实历史指标与脚本自己的 `actual` 行逐位相同。CSV 一律按 `float_precision="round_trip"` 读取，否则 pandas 默认解析会差最后一位。
+
 ## 验证
 
 `audit_next_open.py` 单独比较真实 TQQQ 存续期的信号当日收盘、次日开盘和次日收盘执行。使用缓存 OHLC，先计算旧仓的隔夜收益，再按开盘价换仓、计算新仓日内收益；每日短债计息在隔夜/日内间的分配另做敏感性检查。输出到 `results/next_open_audit/`，不改变主报告。上市前合成序列只有日收益，不能据此确定开盘成交结果。
