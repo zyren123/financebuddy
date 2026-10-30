@@ -73,7 +73,7 @@ export function Term({ k, children }: { k: GlossaryKey; children?: ReactNode }) 
           role="note"
           onPointerEnter={hover(true)}
           onPointerLeave={hover(false)}
-          className="term-pop fixed z-40 block border border-edge border-t-copper bg-void-raised px-4 py-3 text-left"
+          className="fixed z-40 block border border-edge border-t-copper bg-void-raised px-4 py-3 text-left"
           style={{ left: pos.left, top: pos.top, width: Math.min(POPOVER_WIDTH, window.innerWidth - 32) }}
         >
           <span className="block text-[12px] font-medium text-ink">{entry.term}</span>
