@@ -63,3 +63,28 @@ export const ArrowUpRightIcon = (p: SVGProps<SVGSVGElement>) => (
     <path d="M4 10l6-6M5 4h5v5" />
   </Icon>
 )
+
+export const PlayIcon = (p: SVGProps<SVGSVGElement>) => (
+  <Icon {...p}>
+    <path d="M4 2.5v9l7.5-4.5L4 2.5z" />
+  </Icon>
+)
+
+export const StopIcon = (p: SVGProps<SVGSVGElement>) => (
+  <Icon {...p}>
+    <path d="M3.5 3.5h7v7h-7z" />
+  </Icon>
+)
+
+export const DiceIcon = (p: SVGProps<SVGSVGElement>) => (
+  <Icon {...p}>
+    <path d="M2.5 2.5h9v9h-9z" />
+    <path d="M5 5h.01M9 9h.01M9 5h.01M5 9h.01M7 7h.01" strokeWidth="2" />
+  </Icon>
+)
+
+export const ChevronDownIcon = (p: SVGProps<SVGSVGElement>) => (
+  <Icon {...p}>
+    <path d="M3.5 5.5L7 9l3.5-3.5" />
+  </Icon>
+)
