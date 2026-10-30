@@ -16,7 +16,30 @@ export function workerCount(): number {
   return Math.max(1, Math.min((navigator.hardwareConcurrency || 2) - 1, 6))
 }
 
+/** 调度只依赖这几个能力,测试可以换成假 worker */
+export interface WorkerLike {
+  post(message: ToWorker): void
+  terminate(): void
+  onMessage: ((message: FromWorker) => void) | null
+  onError: ((message: string) => void) | null
+}
+
+function browserWorker(): WorkerLike {
+  const worker = new Worker(new URL('./worker.ts', import.meta.url), { type: 'module' })
+  const like: WorkerLike = { post: (m) => worker.postMessage(m), terminate: () => worker.terminate(), onMessage: null, onError: null }
+  worker.onmessage = (event: MessageEvent<FromWorker>) => like.onMessage?.(event.data)
+  worker.onerror = (event) => like.onError?.(event.message)
+  return like
+}
+
+/** 同一批最多同时派给几个 worker:队列空了以后,空闲 worker 接手还没回来的批次 */
+const MAX_COPIES = 3
+
 export function runExperiment(dataset: Dataset, config: ExperimentConfig, handlers: ExperimentHandlers = {}): Promise<ExperimentResult> {
+  return runOnWorkers(dataset, config, handlers, browserWorker)
+}
+
+export function runOnWorkers(dataset: Dataset, config: ExperimentConfig, handlers: ExperimentHandlers, createWorker: () => WorkerLike): Promise<ExperimentResult> {
   const { signal } = handlers
   if (signal?.aborted) return Promise.reject(signal.reason)
   const startedAt = performance.now()
@@ -25,8 +48,10 @@ export function runExperiment(dataset: Dataset, config: ExperimentConfig, handle
   const collector = new Collector(config)
   const queue = batches(config.worlds)
   if (queue.length === 0) return Promise.resolve(collector.finish(dataset, actual, startedAt))
-  const workers = Array.from({ length: Math.min(workerCount(), queue.length) },
-    () => new Worker(new URL('./worker.ts', import.meta.url), { type: 'module' }))
+  const workers = Array.from({ length: Math.min(workerCount(), queue.length) }, createWorker)
+  // 已派出、还没收到结果的批次 → 正在算它的 worker。某个 worker 没有回音时(加载卡住、被系统挂起),
+  // 别的 worker 会在队列清空后重算同一批;世界由 (种子, 序号) 决定,先到的结果即正确结果。
+  const outstanding = new Map<number, { from: number; count: number; workers: Set<WorkerLike> }>()
 
   return new Promise<ExperimentResult>((resolve, reject) => {
     let done = false
@@ -41,25 +66,33 @@ export function runExperiment(dataset: Dataset, config: ExperimentConfig, handle
     }
     const onAbort = () => fail(signal?.reason)
     signal?.addEventListener('abort', onAbort, { once: true })
-    const dispatch = (worker: Worker) => {
-      const next = queue.shift()
-      if (next) worker.postMessage({ type: 'run', ...next } satisfies ToWorker)
+    const dispatch = (worker: WorkerLike) => {
+      let next = queue.shift()
+      if (next) outstanding.set(next.from, { ...next, workers: new Set([worker]) })
+      else {
+        const straggler = [...outstanding.values()].find((b) => !b.workers.has(worker) && b.workers.size < MAX_COPIES)
+        if (!straggler) return
+        straggler.workers.add(worker)
+        next = straggler
+      }
+      worker.post({ type: 'run', from: next.from, count: next.count })
     }
     for (const worker of workers) {
-      worker.onmessage = (event: MessageEvent<FromWorker>) => {
+      worker.onMessage = (message) => {
         // terminate() 之后已排队的消息仍可能送达
         if (done) return
-        const message = event.data
         if (message.type === 'error') return fail(new Error(`平行世界计算失败:${message.message}`))
-        collector.add(message.batch)
-        handlers.onBatch?.(message.batch)
+        if (outstanding.delete(message.batch.from)) {
+          collector.add(message.batch)
+          handlers.onBatch?.(message.batch)
+        }
         if (collector.remaining === 0) {
           stop()
           resolve(collector.finish(dataset, actual, startedAt))
         } else dispatch(worker)
       }
-      worker.onerror = (event) => fail(new Error(`平行世界 worker 出错:${event.message}`))
-      worker.postMessage({ type: 'init', dataset, config } satisfies ToWorker)
+      worker.onError = (message) => fail(new Error(`平行世界 worker 出错:${message}`))
+      worker.post({ type: 'init', dataset, config })
       dispatch(worker)
     }
   })
