@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
+import { Suspense, lazy, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
 import type { RefObject } from 'react'
 import type { RangeKey } from '../charts/convert'
 import { CHART_COLORS } from '../charts/theme'
@@ -13,6 +13,11 @@ import { cardFactories } from './useDashboard'
 import type { useDashboard } from './useDashboard'
 import { DashboardGrid } from './DashboardGrid'
 import type { PresetKey } from './presets'
+
+// 研究控制台只给 Admin,单独分包:访客不下载它的代码和数据
+const ResearchConsole = lazy(() => import('../research/ResearchConsole'))
+
+type View = 'charts' | 'market' | 'research'
 
 const btn =
   'inline-flex items-center gap-1.5 border border-edge px-2.5 py-1.5 text-[12px] text-ink-muted transition-colors duration-150 hover:border-copper hover:text-ink disabled:opacity-40 disabled:hover:border-edge disabled:hover:text-ink-muted'
@@ -60,20 +65,32 @@ export function Dashboard({ admin, dashboard, readings, headerRef, emblemRef }: 
   const narrow = useMediaQuery('(max-width: 767px)')
   const canEdit = isAdmin && !narrow
 
-  const [view, setView] = useState<'charts' | 'market'>('charts')
+  const [view, setView] = useState<View>('charts')
   const [marketOpened, setMarketOpened] = useState(false)
+  const [researchOpened, setResearchOpened] = useState(false)
   const chartsRef = useRef<HTMLElement>(null)
-  const tabRefs = useRef<Record<'charts' | 'market', HTMLButtonElement | null>>({ charts: null, market: null })
+  const tabRefs = useRef<Record<View, HTMLButtonElement | null>>({ charts: null, market: null, research: null })
   const tablistRef = useRef<HTMLDivElement>(null)
-  const scrollOffsets = useRef({ charts: 0, market: 0 })
+  const scrollOffsets = useRef<Record<View, number>>({ charts: 0, market: 0, research: 0 })
   const restoringView = useRef(false)
-  const selectView = useCallback((next: 'charts' | 'market') => {
+  const tabs: { key: View; label: string }[] = [
+    { key: 'charts', label: '核对图表' },
+    { key: 'market', label: '美股指标' },
+    ...(isAdmin ? [{ key: 'research' as const, label: 'TQQQ 研究' }] : []),
+  ]
+  const selectView = useCallback((next: View) => {
     if (next === view || editing) return
     scrollOffsets.current[view] = Math.max(0, window.scrollY - (chartsRef.current?.offsetTop ?? 0))
     restoringView.current = true
     if (next === 'market') setMarketOpened(true)
+    if (next === 'research') setResearchOpened(true)
     setView(next)
   }, [view, editing])
+
+  // 退出管理员会话时研究页签消失,回到图表
+  useEffect(() => {
+    if (!isAdmin && view === 'research') setView('charts')
+  }, [isAdmin, view])
 
   useLayoutEffect(() => {
     if (!restoringView.current) return
@@ -329,7 +346,7 @@ export function Dashboard({ admin, dashboard, readings, headerRef, emblemRef }: 
         <div className="mb-8 flex flex-wrap items-baseline justify-between gap-x-6 gap-y-2 md:mb-10">
           <div ref={tablistRef} role="tablist" aria-label="仪表盘视图" className="relative flex items-baseline gap-6 md:gap-8">
             <SelectionIndicator container={tablistRef} selected={view} />
-            {([{ key: 'charts', label: '核对图表' }, { key: 'market', label: '美股指标' }] as const).map((tab) => (
+            {tabs.map((tab) => (
               <button
                 key={tab.key}
                 ref={(element) => { tabRefs.current[tab.key] = element }}
@@ -339,25 +356,27 @@ export function Dashboard({ admin, dashboard, readings, headerRef, emblemRef }: 
                 aria-selected={view === tab.key}
                 aria-controls={`dashboard-panel-${tab.key}`}
                 tabIndex={view === tab.key ? 0 : -1}
-                disabled={editing && tab.key === 'market'}
-                title={editing && tab.key === 'market' ? '请先返回浏览再查看指标' : undefined}
+                disabled={editing && tab.key !== 'charts'}
+                title={editing && tab.key !== 'charts' ? '请先返回浏览再切换页签' : undefined}
                 onClick={() => selectView(tab.key)}
                 onKeyDown={(event) => {
                   if (!['ArrowLeft', 'ArrowRight', 'Home', 'End'].includes(event.key)) return
                   event.preventDefault()
-                  const next = event.key === 'Home' ? 'charts' : event.key === 'End' ? 'market' : view === 'charts' ? 'market' : 'charts'
-                  if (editing && next === 'market') return
+                  const at = tabs.findIndex((t) => t.key === view)
+                  const index = event.key === 'Home' ? 0 : event.key === 'End' ? tabs.length - 1 : (at + (event.key === 'ArrowRight' ? 1 : tabs.length - 1)) % tabs.length
+                  const next = tabs[index].key
+                  if (editing && next !== 'charts') return
                   selectView(next)
                   tabRefs.current[next]?.focus()
                 }}
-                className={`border-b border-transparent pb-3 font-display text-[26px] leading-tight transition-colors md:text-[32px] disabled:opacity-40 ${view === tab.key ? 'text-ink' : 'text-ink-faint hover:text-ink'}`}
+                className={`shrink-0 border-b border-transparent pb-3 font-display leading-tight transition-colors md:text-[32px] disabled:opacity-40 ${tabs.length > 2 ? 'text-[22px] sm:text-[26px]' : 'text-[26px]'} ${view === tab.key ? 'text-ink' : 'text-ink-faint hover:text-ink'}`}
               >
                 {tab.label}
               </button>
             ))}
           </div>
           <p className="num text-[11px] text-ink-faint">
-            {view === 'charts' ? <>Twelve Data 日线{readings.date ? ` · 截至 ${readings.date}` : ''}</> : '价格 / 估值 / 情绪分别更新'}
+            {view === 'charts' ? <>Twelve Data 日线{readings.date ? ` · 截至 ${readings.date}` : ''}</> : view === 'market' ? '价格 / 估值 / 情绪分别更新' : '仅管理员可见 · 回测在浏览器内计算'}
           </p>
         </div>
 
@@ -406,6 +425,15 @@ export function Dashboard({ admin, dashboard, readings, headerRef, emblemRef }: 
         <div id="dashboard-panel-market" role="tabpanel" aria-labelledby="dashboard-tab-market" hidden={view !== 'market'} tabIndex={0}>
           {marketOpened && <MarketOverview active={view === 'market'} />}
         </div>
+        {isAdmin && (
+          <div id="dashboard-panel-research" role="tabpanel" aria-labelledby="dashboard-tab-research" hidden={view !== 'research'} tabIndex={0}>
+            {researchOpened && (
+              <Suspense fallback={<div className="flex h-64 items-center justify-center"><div role="status" className="border border-dashed border-copper-dim px-4 py-3 text-[12px] text-ink-muted">正在载入研究控制台…</div></div>}>
+                <ResearchConsole />
+              </Suspense>
+            )}
+          </div>
+        )}
       </div>
 
       {loginOpen && (
