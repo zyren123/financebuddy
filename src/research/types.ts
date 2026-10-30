@@ -183,6 +183,8 @@ export interface Archive {
       worlds: number
       seed: number
       summary: RuleSummary[]
+      /** 每条规则在真实历史顺序上的指标(不打乱) */
+      actual: Record<string, WindowMetrics>
       /** 只为关键规则保留逐世界指标,画分布条 */
       strips: { ruleId: string; cagr: number[]; maxDrawdown: number[] }[]
       paired: PairedWins
