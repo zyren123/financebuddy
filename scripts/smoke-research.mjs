@@ -22,7 +22,8 @@ async function open({ mobile = false, reduced = false } = {}) {
   await page.emulateMediaFeatures([{ name: 'prefers-reduced-motion', value: reduced ? 'reduce' : 'no-preference' }])
   await page.evaluateOnNewDocument(() => sessionStorage.setItem('financebuddy:admin-token:v1', 'research-smoke-session'))
   page.on('pageerror', (error) => errors.push(String(error)))
-  page.on('console', (msg) => { if (msg.type() === 'error') errors.push(msg.text()) })
+  // 行情接口在这里被刻意打桩为 503,它们的资源加载报错不算页面错误
+  page.on('console', (msg) => { if (msg.type() === 'error' && !msg.text().includes('503')) errors.push(msg.text()) })
   await page.setRequestInterception(true)
   page.on('request', (request) => {
     const u = new URL(request.url())
