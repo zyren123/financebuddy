@@ -1,4 +1,4 @@
-import type { Point } from './series'
+import type { Point } from './series.js'
 
 /** SMA:输出从第 period 个点开始(下标 period-1) */
 export function sma(points: Point[], period: number): Point[] {

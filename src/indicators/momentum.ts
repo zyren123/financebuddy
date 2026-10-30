@@ -1,4 +1,4 @@
-import type { Point } from './series'
+import type { Point } from './series.js'
 
 /** ROC(变动率,%):(v[t] / v[t-N] - 1) × 100,前 N 个暖机点不输出 */
 export function roc(points: Point[], period: number): Point[] {
