@@ -1,6 +1,7 @@
 import { createHash, timingSafeEqual } from 'node:crypto'
 import { createServer, type IncomingMessage } from 'node:http'
 import { createClient } from 'redis'
+import { createCreditLimiter } from '../../server/credits.js'
 import { handleLayoutRequest, type LayoutStore } from '../../server/layoutApi.js'
 import { createMemorySnapshotStore, createTdCache, type Snapshot, type SnapshotStore } from '../../server/tdCache.js'
 import { VPS_TOKEN_HEADER } from '../../server/vpsRelay.js'
@@ -73,7 +74,7 @@ function readBody(req: IncomingMessage): Promise<string | null> {
 }
 
 const stores = REDIS_URL ? await redisStores(REDIS_URL) : memoryStores()
-const handleTd = createTdCache({ store: stores.snapshots, apiKey: TWELVEDATA_API_KEY })
+const td = createTdCache({ store: stores.snapshots, apiKey: TWELVEDATA_API_KEY, credits: createCreditLimiter() })
 
 async function route(req: IncomingMessage, url: URL): Promise<{ status: number; body: string; headers?: Record<string, string>; log?: object }> {
   if (url.pathname === '/healthz') return { status: 200, body: '{"ok":true}' }
@@ -92,7 +93,7 @@ async function route(req: IncomingMessage, url: URL): Promise<{ status: number; 
 
   if (isTd) {
     if (req.method !== 'GET') return { status: 405, body: '{"error":"method not allowed"}' }
-    const r = await handleTd(url.searchParams)
+    const r = await td.handle(url.searchParams)
     const p = url.searchParams
     return { ...r, log: { symbol: p.get('symbol'), interval: p.get('interval'), start: p.get('start_date'), outcome: r.outcome } }
   }

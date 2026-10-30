@@ -1,5 +1,7 @@
 import { MARKET_FEEDS, type MarketData, type MarketFeed, type PriceFeed } from '../src/market/model.js'
-import { readArray, readNumber, readObject } from '../src/market/schema.js'
+import { parseMarketData, readArray, readNumber, readObject } from '../src/market/schema.js'
+import type { MarketInputs } from '../src/readings/compute.js'
+import type { LayoutStore } from './layoutApi.js'
 
 const PRICE_SYMBOLS = { sp500: '^GSPC', nasdaq100: '^NDX', vix: '^VIX' }
 const UPSTREAM_TIMEOUT_MS = 12_000
@@ -65,6 +67,85 @@ function upstreamUrl(feed: MarketFeed): string {
   }
 }
 
+async function fetchFeed(feed: MarketFeed, fetcher: typeof fetch, now: number): Promise<MarketData> {
+  const response = await fetcher(upstreamUrl(feed), {
+    headers: { accept: 'application/json', 'user-agent': 'Mozilla/5.0 (compatible; FinanceBuddy/0.1)' },
+    signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
+  })
+  if (!response.ok) throw new Error(`来源返回 HTTP ${response.status}`)
+  const raw: unknown = await response.json()
+  return feed === 'valuations' ? parseValuations(raw) : feed === 'fear-greed' ? parseFearGreed(raw) : parseYahooPrices(feed, raw, now)
+}
+
+/** 与 LayoutStore 同形的字符串 KV;VPS 用同一个 Redis(键 market:*),平台与开发用内存 */
+export type TextStore = LayoutStore
+
+export function createMemoryTextStore(): TextStore {
+  const map = new Map<string, string>()
+  return { get: async (key) => map.get(key) ?? null, put: async (key, value) => void map.set(key, value) }
+}
+
+export const MARKET_TTL_MS: Record<MarketFeed, number> = {
+  sp500: 6 * 3_600_000,
+  nasdaq100: 6 * 3_600_000,
+  vix: 6 * 3_600_000,
+  valuations: 6 * 3_600_000,
+  'fear-greed': 30 * 60_000,
+}
+
+export const marketKey = (feed: MarketFeed) => `market:${feed}`
+
+/**
+ * 五个 feed 各自维持"最近一次成功"的解析结果并持久化:TTL 内直接用存储;过期抓上游,成功写回,
+ * 失败回存储里的旧值(带它自己的旧日期);连旧值都没有 → null。
+ * 不做并发合并:唯一调用方 readings 服务的 refresh 本身是单飞的。
+ */
+export function createMarketSource({ store, fetcher = fetch, now = Date.now }: {
+  store: TextStore
+  fetcher?: typeof fetch
+  now?: () => number
+}): { load(): Promise<MarketInputs> } {
+  async function stored(feed: MarketFeed): Promise<{ data: MarketData; fetchedAt: number } | null> {
+    try {
+      const raw = await store.get(marketKey(feed))
+      if (!raw) return null
+      const body = readObject(JSON.parse(raw))
+      // 重新校验:存储形状跨版本漂移时当作没有
+      return { data: parseMarketData(feed, body.data), fetchedAt: readNumber(body.fetchedAt) }
+    } catch {
+      return null
+    }
+  }
+
+  async function loadFeed(feed: MarketFeed): Promise<MarketData | null> {
+    const old = await stored(feed)
+    if (old && now() - old.fetchedAt < MARKET_TTL_MS[feed]) return old.data
+    try {
+      const data = await fetchFeed(feed, fetcher, now())
+      await store.put(marketKey(feed), JSON.stringify({ data, fetchedAt: now() })).catch((err: unknown) => {
+        console.error('market store put failed', feed, err)
+      })
+      return data
+    } catch (err) {
+      console.warn(JSON.stringify({ market: feed, error: String(err), stale: old !== null }))
+      return old?.data ?? null
+    }
+  }
+
+  return {
+    async load() {
+      const [sp500, nasdaq100, vix, valuations, fearGreed] = await Promise.all(MARKET_FEEDS.map(loadFeed))
+      return {
+        sp500: sp500 && 'bars' in sp500 ? sp500 : null,
+        nasdaq100: nasdaq100 && 'bars' in nasdaq100 ? nasdaq100 : null,
+        vix: vix && 'bars' in vix ? vix : null,
+        valuations: valuations?.feed === 'valuations' ? valuations : null,
+        'fear-greed': fearGreed?.feed === 'fear-greed' ? fearGreed : null,
+      }
+    },
+  }
+}
+
 type Result = { status: number; body: string }
 
 export function marketFeedFromRequest(request: Request): MarketFeed | Response {
@@ -88,13 +169,7 @@ export function createMarketApi(fetcher: typeof fetch = fetch, now: () => number
     const work = (async () => {
       let result: Result
       try {
-        const response = await fetcher(upstreamUrl(feed), {
-          headers: { accept: 'application/json', 'user-agent': 'Mozilla/5.0 (compatible; FinanceBuddy/0.1)' },
-          signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
-        })
-        if (!response.ok) throw new Error(`来源返回 HTTP ${response.status}`)
-        const raw: unknown = await response.json()
-        const data = feed === 'valuations' ? parseValuations(raw) : feed === 'fear-greed' ? parseFearGreed(raw) : parseYahooPrices(feed, raw, now())
+        const data = await fetchFeed(feed, fetcher, now())
         result = { status: 200, body: JSON.stringify(data) }
       } catch {
         result = { status: 502, body: JSON.stringify({ error: '数据来源暂不可用，请稍后重试。' }) }

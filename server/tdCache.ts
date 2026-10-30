@@ -3,6 +3,9 @@
  * 所有访客的全量 / 增量请求都从快照切片,上游调用与访客数无关。
  * 只用 Web 标准 API;存储经 SnapshotStore 注入(VPS 用 Redis,测试与本地用内存)。
  */
+import { barsFromTimeSeries } from '../src/data/timeSeries.js'
+import type { Bar } from '../src/data/types.js'
+import type { CreditLimiter } from './credits.js'
 
 export type Interval = '1day'
 type Adjustment = 'all' | 'splits' | 'dividends' | 'none'
@@ -49,6 +52,8 @@ const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
 const FULL_SIZE = 5000
 export const SNAPSHOT_TTL_MS = 6 * 60 * 60 * 1000
 export const FAILURE_COOLDOWN_MS = 5 * 60 * 1000
+/** 布局里一个坏 symbol 不能每轮都烧 credit */
+export const NOT_FOUND_COOLDOWN_MS = SNAPSHOT_TTL_MS
 const UPSTREAM_TIMEOUT_MS = 15_000
 
 const json = (status: number, payload: unknown, outcome: CacheOutcome) => ({
@@ -115,16 +120,42 @@ interface UpstreamSeries {
 export interface TdCacheDeps {
   store: SnapshotStore
   apiKey: string
+  credits: CreditLimiter
   now?: () => number
 }
 
-export function createTdCache({ store, apiKey, now = Date.now }: TdCacheDeps) {
-  // 同一 key 的并发刷新合并为一次上游调用(冷启动时多个访客同时到达)
-  const inflight = new Map<string, Promise<Snapshot | { status: number; body: string }>>()
-  // 上游失败(429 额度用完、故障)后该 key 冷却一段时间,期间不再打上游,有旧快照就回旧快照
-  const failures = new Map<string, { at: number; result: { status: number; body: string } }>()
+export interface TdCache {
+  /** GET /api/td */
+  handle(params: URLSearchParams): Promise<CacheResult>
+  /** 该 symbol 的日线(与浏览器同一复权口径的快照),旧→新;刷新失败有旧快照用旧快照,都没有 → null */
+  bars(symbol: string): Promise<Bar[] | null>
+}
 
-  async function fetchFull(q: SeriesQuery): Promise<Snapshot | { status: number; body: string }> {
+type Failure = { status: number; body: string }
+
+/** 上游说 symbol 不存在 / 无数据(code 400 或 404)冷却 6h,其余失败 5min */
+export function cooldownFor(result: Failure): number {
+  let code: unknown = result.status
+  try {
+    code = (JSON.parse(result.body) as UpstreamSeries).code ?? result.status
+  } catch {
+    // 非 JSON 错误体按 HTTP 状态判断
+  }
+  return code === 400 || code === 404 ? NOT_FOUND_COOLDOWN_MS : FAILURE_COOLDOWN_MS
+}
+
+const keyOf = (q: Pick<SeriesQuery, 'symbol' | 'interval' | 'adjust'>) => `td:time_series:${q.symbol}:${q.interval}:${q.adjust}`
+
+export function createTdCache({ store, apiKey, credits, now = Date.now }: TdCacheDeps): TdCache {
+  // 同一 key 的并发刷新合并为一次上游调用(冷启动时多个访客同时到达)
+  const inflight = new Map<string, Promise<Snapshot | Failure>>()
+  // 上游失败(429 额度用完、故障)后该 key 冷却一段时间,期间不再打上游,有旧快照就回旧快照
+  const failures = new Map<string, { at: number; cooldown: number; result: Failure }>()
+
+  async function fetchFull(q: SeriesQuery): Promise<Snapshot | Failure> {
+    if (!(await credits.acquire())) {
+      return { status: 429, body: JSON.stringify({ code: 429, status: 'error', message: 'credits for the day exhausted (td-cache budget)' }) }
+    }
     const params = new URLSearchParams({
       symbol: q.symbol,
       interval: q.interval,
@@ -157,12 +188,12 @@ export function createTdCache({ store, apiKey, now = Date.now }: TdCacheDeps) {
 
   function refresh(key: string, q: SeriesQuery) {
     const failure = failures.get(key)
-    if (failure && now() - failure.at < FAILURE_COOLDOWN_MS) return Promise.resolve(failure.result)
+    if (failure && now() - failure.at < failure.cooldown) return Promise.resolve(failure.result)
     let pending = inflight.get(key)
     if (!pending) {
       pending = fetchFull(q).then(async (result) => {
         if (!('values' in result)) {
-          failures.set(key, { at: now(), result })
+          failures.set(key, { at: now(), cooldown: cooldownFor(result), result })
           return result
         }
         failures.delete(key)
@@ -180,11 +211,11 @@ export function createTdCache({ store, apiKey, now = Date.now }: TdCacheDeps) {
     return pending
   }
 
-  return async function handle(params: URLSearchParams): Promise<CacheResult> {
+  async function handle(params: URLSearchParams): Promise<CacheResult> {
     const q = parseSeriesQuery(params)
     if ('error' in q) return json(400, { error: q.error }, 'upstream-error')
 
-    const key = `td:time_series:${q.symbol}:${q.interval}:${q.adjust}`
+    const key = keyOf(q)
     const cached = await store.get(key)
     let snapshot: Snapshot
     let outcome: CacheOutcome
@@ -216,4 +247,18 @@ export function createTdCache({ store, apiKey, now = Date.now }: TdCacheDeps) {
     }
     return json(200, { meta: snapshot.meta, values, status: 'ok' }, outcome)
   }
+
+  async function bars(symbol: string): Promise<Bar[] | null> {
+    const q: SeriesQuery = { symbol: symbol.toUpperCase(), interval: '1day', adjust: 'all', outputsize: null, startDate: null, endDate: null }
+    const key = keyOf(q)
+    const cached = await store.get(key)
+    let snapshot: Snapshot | null = cached
+    if (!cached || now() - cached.fetchedAt >= SNAPSHOT_TTL_MS) {
+      const fresh = await refresh(key, q)
+      if ('values' in fresh) snapshot = fresh
+    }
+    return snapshot ? barsFromTimeSeries(snapshot.values) : null
+  }
+
+  return { handle, bars }
 }

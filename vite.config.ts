@@ -9,6 +9,7 @@ import { readBody } from './server/readBody'
 import { relayLayoutRequest, vpsRelayFromEnv } from './server/vpsRelay'
 import { proxyMarketRequest } from './server/marketProxy'
 import { createMemorySnapshotStore, createTdCache } from './server/tdCache'
+import { createCreditLimiter } from './server/credits'
 
 // 开发期有 API_KEY 时运行当前版本的共享行情缓存,避免依赖尚未部署的 VPS 版本。
 // 无本地 key 时仍经 tdProxy 转发;布局的 VPS 转发配置独立保持。
@@ -17,7 +18,7 @@ import { createMemorySnapshotStore, createTdCache } from './server/tdCache'
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')
   const apiKey = env.API_KEY || process.env.API_KEY || ''
-  const localTdCache = apiKey ? createTdCache({ store: createMemorySnapshotStore(), apiKey }) : null
+  const localTdCache = apiKey ? createTdCache({ store: createMemorySnapshotStore(), apiKey, credits: createCreditLimiter() }) : null
   const tdUpstream = upstreamFromEnv({
     TWELVEDATA_API_KEY: apiKey,
     TD_CACHE_URL: env.TD_CACHE_URL,
@@ -70,7 +71,7 @@ export default defineConfig(({ mode }) => {
               }
               const url = new URL(req.url, 'http://localhost')
               const result = localTdCache
-                ? await localTdCache(url.searchParams)
+                ? await localTdCache.handle(url.searchParams)
                 : await proxyTwelveData(url, tdUpstream)
               res.statusCode = result.status
               res.setHeader('content-type', 'application/json')
