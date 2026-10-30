@@ -122,7 +122,7 @@ export function LiveRun({ runNumber, initialWorld, initialRules, autorun, archiv
         dirty={dirty}
         runNumber={runNumber}
       />
-      <div className="mt-4">
+      <div className="mt-3">
         <RuleChips
           rules={rules}
           focus={focus}
@@ -142,7 +142,7 @@ export function LiveRun({ runNumber, initialWorld, initialRules, autorun, archiv
         </div>
       )}
 
-      <div className={`mt-6 transition-opacity duration-200 ${dirty && !busy ? 'opacity-45' : ''}`}>
+      <div className={`mt-5 transition-opacity duration-200 ${dirty && !busy ? 'opacity-45' : ''}`}>
         {dirty && !busy && <p className="mb-3 text-[12px] text-ink-muted" role="status">配置已修改。下面仍是上一次运行的结果，运行后更新。</p>}
         <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_220px] lg:gap-10">
           <figure className="min-w-0">

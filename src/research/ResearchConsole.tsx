@@ -151,16 +151,16 @@ function Console({ a }: { a: Archive }) {
       <div className="min-w-0">
         <header>
           <h2 className="max-w-[20ch] font-display text-[clamp(2rem,4vw,3rem)] leading-[1.05] text-ink xl:max-w-none">三门挡得住归零，{actualGate ? `${pct(actualGate.maxDrawdown, 0)} ` : ''}回撤却是幸运路径</h2>
-          <p className="mt-4 max-w-[52em] text-[17px] leading-[1.625] text-ink-muted">
-            在打乱历史顺序造出的<Term k="bootstrap">平行世界</Term>里，三门的回撤中位是 <span className="num text-ink">{pct(Math.max(...gateMdd), 0)} 到 {pct(Math.min(...gateMdd), 0)}</span>，真实历史好过其中 <span className="num text-ink">{share(Math.min(...gatePct))}–{share(Math.max(...gatePct))}</span> 的世界，实际使用应按这个区间准备。SMA200 更深，回撤中位 <span className="num text-ink">{pct(Math.max(...smaMdd), 0)} 到 {pct(Math.min(...smaMdd), 0)}</span>，但真实历史只好过 <span className="num text-ink">{share(Math.min(...smaPct))}–{share(Math.max(...smaPct))}</span> 的世界，更接近它的常态。
+          <p className="mt-4 max-w-[40em] text-[17px] leading-[1.625] text-ink-muted">
+            在打乱历史顺序造出的<Term k="bootstrap">平行世界</Term>里，三门的回撤中位是 <span className="num text-ink">{pct(Math.max(...gateMdd), 0)} 到 {pct(Math.min(...gateMdd), 0)}</span>，实际使用应按这个区间准备；真实历史好过其中 <span className="num text-ink">{share(Math.min(...gatePct))}–{share(Math.max(...gatePct))}</span> 的世界。SMA200 更深，回撤中位 <span className="num text-ink">{pct(Math.max(...smaMdd), 0)} 到 {pct(Math.min(...smaMdd), 0)}</span>，真实历史只好过 <span className="num text-ink">{share(Math.min(...smaPct))}–{share(Math.max(...smaPct))}</span> 的世界，更接近常态。
           </p>
         </header>
 
         {featured && (
-          <section id="run-05" aria-label="RUN 05 参数 × 平行世界" className="scroll-mt-24 pt-7">
+          <section id="run-05" aria-label="RUN 05 参数 × 平行世界" className="scroll-mt-24 pt-6">
             <LiveRun runNumber="RUN 05" initialWorld={worldOf(featured)} initialRules={defaultRules()} autorun archive={a} />
             <div className="mt-14 max-w-[38em] space-y-3 text-[17px] leading-[1.625] text-ink-muted">
-              <h3 className="font-display text-[clamp(2rem,4vw,3rem)] leading-[1.05] text-ink">换参数，衰退还在</h3>
+              <h3 className="font-display text-[clamp(1.5rem,4vw,2.25rem)] leading-[1.1] text-ink">换参数，衰退还在</h3>
               <p>Python 归档在同一批世界里比较了三门的 {featured.summary.filter((s) => s.ruleId.startsWith('three_gate')).length} 个参数变体。每个变体的平行世界回撤都比它的真实历史深得多，衰退分布在整个参数族，不是作者参数特别走运。真实历史上最好的变体衰退最多，这是按历史挑参数的典型后果。</p>
               <p>上面的实验台可以换构造方式、段长和规则。改完点“运行新配置”，扇面和读数会随世界流入逐步收敛。</p>
             </div>
