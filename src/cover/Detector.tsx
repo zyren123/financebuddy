@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { KeyboardEvent, PointerEvent } from 'react'
 import { CHART_COLORS } from '../charts/theme'
-import type { RatioReading } from '../data/useRatioReadings'
+import type { RatioReading } from '../readings/useCoverReadings'
 import { springs } from '../motion/spring'
 import { useSpring } from '../motion/useSpring'
 import { formatSigned } from '../ui/CountUp'

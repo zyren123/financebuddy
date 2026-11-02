@@ -67,6 +67,19 @@ describe('ensureBars', () => {
     expect(set).not.toHaveBeenCalled()
   })
 
+  it('6h 内但比服务端快照日期旧 → 全量刷新', async () => {
+    cacheUpTo('2026-10-08', Date.now() - HOUR)
+    const bars = await ensureBars('QQQ', '1day', TODAY)
+    expect(fetchBars).toHaveBeenCalledTimes(1)
+    expect(bars.at(-1)!.datetime).toBe(TODAY)
+  })
+
+  it('不比服务端快照日期旧 → 仍用缓存', async () => {
+    cacheUpTo('2026-10-08', Date.now() - HOUR)
+    await ensureBars('QQQ', '1day', '2026-10-08')
+    expect(fetchBars).not.toHaveBeenCalled()
+  })
+
   it('无缓存时全量拉取并写回', async () => {
     vi.mocked(get).mockResolvedValue(undefined)
     const bars = await ensureBars('QQQ', '1day')

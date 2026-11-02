@@ -7,6 +7,9 @@ RUN npm ci
 COPY server /app/server
 COPY src/dashboard /app/src/dashboard
 COPY src/market /app/src/market
+COPY src/readings /app/src/readings
+COPY src/indicators /app/src/indicators
+COPY src/data /app/src/data
 COPY vps/td-cache/main.ts ./
 RUN npx esbuild main.ts --bundle --platform=node --format=esm --target=node24 \
       --external:redis --outfile=dist/main.mjs

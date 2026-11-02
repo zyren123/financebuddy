@@ -1,5 +1,7 @@
 import { MARKET_FEEDS, type MarketData, type MarketFeed, type PriceFeed } from '../src/market/model.js'
-import { readArray, readNumber, readObject } from '../src/market/schema.js'
+import { parseMarketData, readArray, readNumber, readObject } from '../src/market/schema.js'
+import type { MarketInputs } from '../src/readings/compute.js'
+import type { LayoutStore } from './layoutApi.js'
 
 const PRICE_SYMBOLS = { sp500: '^GSPC', nasdaq100: '^NDX', vix: '^VIX' }
 const UPSTREAM_TIMEOUT_MS = 12_000
@@ -65,59 +67,83 @@ function upstreamUrl(feed: MarketFeed): string {
   }
 }
 
-type Result = { status: number; body: string }
-
-export function marketFeedFromRequest(request: Request): MarketFeed | Response {
-  if (request.method !== 'GET') return Response.json({ error: 'method not allowed' }, { status: 405, headers: { allow: 'GET' } })
-  const url = new URL(request.url)
-  const feed = MARKET_FEEDS.find((item) => item === url.searchParams.get('feed'))
-  if (!feed || [...url.searchParams.keys()].some((key) => key !== 'feed') || url.searchParams.getAll('feed').length !== 1) {
-    return Response.json({ error: 'unknown market feed' }, { status: 400 })
-  }
-  return feed
+async function fetchFeed(feed: MarketFeed, fetcher: typeof fetch, now: number): Promise<MarketData> {
+  const response = await fetcher(upstreamUrl(feed), {
+    headers: { accept: 'application/json', 'user-agent': 'Mozilla/5.0 (compatible; FinanceBuddy/0.1)' },
+    signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
+  })
+  if (!response.ok) throw new Error(`来源返回 HTTP ${response.status}`)
+  const raw: unknown = await response.json()
+  return feed === 'valuations' ? parseValuations(raw) : feed === 'fear-greed' ? parseFearGreed(raw) : parseYahooPrices(feed, raw, now)
 }
 
-export function createMarketApi(fetcher: typeof fetch = fetch, now: () => number = Date.now) {
-  const cache = new Map<MarketFeed, { result: Result; expires: number }>()
-  const pending = new Map<MarketFeed, Promise<Result>>()
-  async function load(feed: MarketFeed): Promise<Result> {
-    const hit = cache.get(feed)
-    if (hit && hit.expires > now()) return hit.result
-    const running = pending.get(feed)
-    if (running) return running
-    const work = (async () => {
-      let result: Result
-      try {
-        const response = await fetcher(upstreamUrl(feed), {
-          headers: { accept: 'application/json', 'user-agent': 'Mozilla/5.0 (compatible; FinanceBuddy/0.1)' },
-          signal: AbortSignal.timeout(UPSTREAM_TIMEOUT_MS),
-        })
-        if (!response.ok) throw new Error(`来源返回 HTTP ${response.status}`)
-        const raw: unknown = await response.json()
-        const data = feed === 'valuations' ? parseValuations(raw) : feed === 'fear-greed' ? parseFearGreed(raw) : parseYahooPrices(feed, raw, now())
-        result = { status: 200, body: JSON.stringify(data) }
-      } catch {
-        result = { status: 502, body: JSON.stringify({ error: '数据来源暂不可用，请稍后重试。' }) }
-      }
-      if (result.status === 200) {
-        const ttl = feed === 'fear-greed' ? 30 * 60_000 : 6 * 60 * 60_000
-        cache.set(feed, { result, expires: now() + ttl })
-      }
-      return result
-    })()
-    pending.set(feed, work)
-    try { return await work } finally { pending.delete(feed) }
-  }
+export type TextStore = LayoutStore
 
-  return async function handle(request: Request): Promise<Response> {
-    const feed = marketFeedFromRequest(request)
-    if (feed instanceof Response) return feed
-    const result = await load(feed)
-    return new Response(result.body, { status: result.status, headers: {
-      'content-type': 'application/json; charset=utf-8',
-      'cache-control': result.status === 200 ? 'public, max-age=60, s-maxage=3600' : 'no-store',
-    } })
-  }
+export function createMemoryTextStore(): TextStore {
+  const map = new Map<string, string>()
+  return { get: async (key) => map.get(key) ?? null, put: async (key, value) => void map.set(key, value) }
 }
 
-export const handleMarketRequest = createMarketApi()
+export const MARKET_TTL_MS: Record<MarketFeed, number> = {
+  sp500: 6 * 3_600_000,
+  nasdaq100: 6 * 3_600_000,
+  vix: 6 * 3_600_000,
+  valuations: 6 * 3_600_000,
+  'fear-greed': 30 * 60_000,
+}
+
+export const marketKey = (feed: MarketFeed) => `market:${feed}`
+
+export function createMarketSource({ store, fetcher = fetch, now = Date.now }: {
+  store: TextStore
+  fetcher?: typeof fetch
+  now?: () => number
+}): { load(): Promise<MarketInputs> } {
+  async function stored(feed: MarketFeed): Promise<{ data: MarketData; fetchedAt: number } | null> {
+    try {
+      const raw = await store.get(marketKey(feed))
+      if (!raw) return null
+      const body = readObject(JSON.parse(raw))
+      return { data: parseMarketData(feed, body.data), fetchedAt: readNumber(body.fetchedAt) }
+    } catch {
+      return null
+    }
+  }
+
+  async function loadFeed(feed: MarketFeed): Promise<MarketData | null> {
+    const old = await stored(feed)
+    if (old && now() - old.fetchedAt < MARKET_TTL_MS[feed]) return old.data
+    try {
+      const data = await fetchFeed(feed, fetcher, now())
+      await store.put(marketKey(feed), JSON.stringify({ data, fetchedAt: now() })).catch((err: unknown) => {
+        console.error('market store put failed', feed, err)
+      })
+      return data
+    } catch (err) {
+      console.warn(JSON.stringify({ market: feed, error: String(err), stale: old !== null }))
+      return old?.data ?? null
+    }
+  }
+
+  let running: Promise<MarketInputs> | null = null
+
+  async function loadAll(): Promise<MarketInputs> {
+    const [sp500, nasdaq100, vix, valuations, fearGreed] = await Promise.all(MARKET_FEEDS.map(loadFeed))
+    return {
+      sp500: sp500 && 'bars' in sp500 ? sp500 : null,
+      nasdaq100: nasdaq100 && 'bars' in nasdaq100 ? nasdaq100 : null,
+      vix: vix && 'bars' in vix ? vix : null,
+      valuations: valuations?.feed === 'valuations' ? valuations : null,
+      'fear-greed': fearGreed?.feed === 'fear-greed' ? fearGreed : null,
+    }
+  }
+
+  return {
+    load() {
+      running ??= loadAll().finally(() => {
+        running = null
+      })
+      return running
+    },
+  }
+}

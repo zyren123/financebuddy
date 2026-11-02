@@ -1,7 +1,7 @@
-import type { Bar } from '../data/types'
-import { roc } from './momentum'
-import { alignByDate } from './series'
-import type { Point } from './series'
+import type { Bar } from '../data/types.js'
+import { roc } from './momentum.js'
+import { alignByDate } from './series.js'
+import type { Point } from './series.js'
 
 /**
  * Ratio 的比值序列:分子/分母按日期对齐后的收盘价比。

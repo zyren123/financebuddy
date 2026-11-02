@@ -1,5 +1,5 @@
-import { rsi } from '../indicators/momentum'
-import type { PriceBar } from './model'
+import { rsi } from '../indicators/momentum.js'
+import type { PriceBar } from './model.js'
 
 export function priceMetrics(bars: PriceBar[]) {
   const latest = bars.at(-1)

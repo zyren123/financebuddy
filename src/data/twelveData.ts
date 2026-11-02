@@ -1,19 +1,12 @@
 import { acquireCredit } from './rateLimit'
+import { barsFromTimeSeries } from './timeSeries'
+import type { RawTimeSeriesBar } from './timeSeries'
 import { PRICE_ADJUSTMENT } from './types'
 import type { Bar, Interval } from './types'
 
-interface RawBar {
-  datetime: string
-  open?: string
-  high?: string
-  low?: string
-  close?: string
-  volume?: string | null
-}
-
 interface TimeSeriesResponse {
   meta?: { symbol?: string; interval?: string }
-  values?: RawBar[]
+  values?: RawTimeSeriesBar[]
   status?: string
   code?: number
   message?: string
@@ -26,17 +19,6 @@ export interface FetchBarsOpts {
   outputsize?: number
   startDate?: string
   endDate?: string
-}
-
-function parseBar(b: RawBar): Bar {
-  return {
-    datetime: b.datetime,
-    open: Number(b.open),
-    high: Number(b.high),
-    low: Number(b.low),
-    close: Number(b.close),
-    volume: b.volume == null ? null : Number(b.volume),
-  }
 }
 
 /**
@@ -69,5 +51,5 @@ export async function fetchBars(opts: FetchBarsOpts): Promise<Bar[]> {
   if (json.status === 'error' || json.code !== undefined) {
     throw new Error(`Twelve Data 错误(code ${json.code ?? '?'}):${json.message ?? '未知错误'}`)
   }
-  return (json.values ?? []).map(parseBar).reverse()
+  return barsFromTimeSeries(json.values ?? [])
 }

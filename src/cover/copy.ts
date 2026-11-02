@@ -1,5 +1,13 @@
-import type { RatioReading } from '../data/useRatioReadings'
-import { verdictOf } from '../data/useRatioReadings'
+import type { RatioReading } from '../readings/useCoverReadings'
+
+export type Verdict = 'growth' | 'value' | 'mixed'
+
+export function verdictOf(readings: RatioReading[]): Verdict | null {
+  if (readings.length === 0) return null
+  if (readings.every((r) => r.value < 0)) return 'growth'
+  if (readings.every((r) => r.value > 0)) return 'value'
+  return 'mixed'
+}
 
 /** 已知的成长基准:分母是它们时,"分母跑赢"可以直接说成"成长领先" */
 const GROWTH_BENCHMARKS = new Set(['QQQ', 'QQQM', 'VUG', 'SCHG', 'IWF'])

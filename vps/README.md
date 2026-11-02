@@ -35,16 +35,16 @@ curl -fsSL -o docker-compose.yml https://raw.githubusercontent.com/zyren123/fina
 
 compose 项目名在文件里固定为 `vps`,Redis 卷 `vps_redis-data` 不随目录变,重建容器不丢数据。
 
-本次无需新增必填环境变量或修改 `docker-compose.yml`。后端镜像包含 `adjust=all` 支持和 `/api/market`；前端镜像包含移除前瞻 PE 的界面和新增的 nginx 指标路由。两者都必须更新。浏览器刷新后自动使用新复权缓存键。
+本次无需新增必填环境变量或修改 `docker-compose.yml`。后端镜像新增 `/api/readings`(读数快照,每 30 分钟后台重算),删除 `/api/market`;前端镜像的 nginx 白名单同样换成 `/api/readings`。两者都必须更新。
 
 通过备用前端检查两个接口：
 
 ```bash
 curl -fsS 'http://127.0.0.1:8788/api/td?endpoint=time_series&symbol=QQQ&interval=1day&outputsize=1&adjust=all'
-curl -fsS 'http://127.0.0.1:8788/api/market?feed=valuations'
+curl -fsS 'http://127.0.0.1:8788/api/readings'
 ```
 
-第一条应返回 `status: "ok"` 的日线；第二条应返回 `feed: "valuations"` 与两个指数的 PE。备用前端 nginx 会在服务内部注入口令，浏览器和以上命令不需要持有口令。出现问题可查看 `sudo docker compose logs --tail=100 td-cache web`。
+第一条应返回 `status: "ok"` 的日线；第二条应返回读数快照,`ratios` 各项与 `market` 各项的 `status` 多数为 `ready`,`computedAt` 在 30 分钟内。容器刚启动时第一次计算要几秒,这条请求会等它算完。也可以在本机运行 `VPS_HOST=<ssh 别名> node vps/scripts/verify.mjs` 一并检查。备用前端 nginx 会在服务内部注入口令，浏览器和以上命令不需要持有口令。出现问题可查看 `sudo docker compose logs --tail=100 td-cache web`。
 
 若主站托管在 Vercel / EdgeOne，先完成 VPS 后端更新，再部署同一提交的主站；VPS 的 `web` 更新仅影响备用前端。
 
@@ -89,7 +89,7 @@ IMAGE_TAG=<可选,提交 SHA;不设为 latest>
 - `TD_CACHE_URL=https://api.zenode.duckdns.org`
 - `TD_CACHE_TOKEN=<同上>`
 
-然后重新部署。`/api/td`、`/api/layout` 与 `/api/market` 都会转发到 VPS,Admin 登录用 VPS 上的 `ADMIN_TOKEN`。美股指标复用 VPS 进程内缓存，价格与估值六小时、CNN 三十分钟；该缓存不写入 Redis，服务重启后清空。首次切换后布局是"未发布",在 Admin 里发布一次即可。删掉这两个变量即回到直连来源与平台 KV(仍需 `TWELVEDATA_API_KEY`、`ADMIN_TOKEN` 与 KV)。
+然后重新部署。`/api/td`、`/api/layout` 与 `/api/readings` 都会转发到 VPS,Admin 登录用 VPS 上的 `ADMIN_TOKEN`。美股指标各来源的上次成功值存在 Redis 的 `market:*`,价格与估值六小时、CNN 三十分钟过期。首次切换后布局是"未发布",在 Admin 里发布一次即可。删掉这两个变量即回到直连来源与平台 KV(仍需 `TWELVEDATA_API_KEY`、`ADMIN_TOKEN` 与 KV)。
 
 ## 运维
 

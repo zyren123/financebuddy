@@ -10,7 +10,7 @@
 - **单一事实源布局**:Admin 经 `#admin` 输口令登录 → `E` 进入编辑(改动存会话级草稿)→ 点「发布」写入服务端 KV,对所有访客生效;旧版自动保留,可「恢复上一版」;访客始终只读
 - **可拖拽网格**:编辑模式下拖动换位、拉角调宽高;四宫格 / 自上而下两种预设一键重排
 - **Browse State**:访客点时间区间(6月/1年/…)只是会话内偏好,刷新即回,不属于布局
-- 指标全部前端计算(ADR-0002),图表配色过 CVD 校验,十字线联动读数
+- 封面与美股指标的读数由服务端算好、页面一打开就到(ADR-0005);图表指标在前端计算(ADR-0002),配色过 CVD 校验,十字线联动读数
 
 ## 快速开始
 
@@ -21,6 +21,14 @@ npm run dev            # http://localhost:5173,Admin 口令缺省 dev-admin-toke
 ```
 
 key 只用于本地 dev proxy 转发,不进前端代码。
+
+本机直连 Yahoo / CNN 需要代理时(国内网络),用 Node 内建的环境代理启动:
+
+```bash
+NODE_USE_ENV_PROXY=1 HTTPS_PROXY=http://127.0.0.1:10808 npm run dev
+```
+
+开发期 `/api/readings` 配了 `TD_CACHE_*` 就转发 VPS;VPS 还没有这个接口(返回 404)时在本机算,K 线有本机 `API_KEY` 用本机缓存,否则经 VPS 的 `/api/td` 取。
 
 ## 常用命令
 
@@ -42,6 +50,10 @@ key 只用于本地 dev proxy 转发,不进前端代码。
   │    └─ EdgeOne:functions/api/td/index.ts ─┘
   │         └─ server/tdProxy.ts(共享核心:白名单、6h 共享缓存、key 注入)
   │             └─ api.twelvedata.com
+  ├─ GET /api/readings → 读数快照(ADR-0005,index.html preload;固定 URL、无参数)
+  │    ├─ VPS:server/readings.ts 每 30 分钟重算,发布/恢复布局后立即重算
+  │    ├─ Vercel / EdgeOne:api/readings.ts、functions/api/readings → 转发 VPS;未配置 VPS 时本进程计算
+  │    └─ 开发期:转发 VPS,VPS 404 时本机计算
   └─ /api/layout  → 布局读写(ADR-0003:服务端单一事实源)
        ├─ GET(公开):KV 的 Published → 404 时客户端回落 Factory Layout(default-dashboard.json)
        ├─ PUT/POST(x-admin-token):发布 / verify / 恢复上一版,服务端校验 schema
@@ -68,7 +80,7 @@ key 只用于本地 dev proxy 转发,不进前端代码。
 
 平台函数的进程内缓存跨实例不共享,每个新访客都会消耗额度。在两个平台的环境变量里设 `TD_CACHE_URL` 与 `TD_CACHE_TOKEN`,`/api/td` 与 `/api/layout` 就都转发到 VPS(行情共享缓存 + 全局唯一的布局,ADR-0004,部署见 `vps/README.md`),此时平台上不需要 `TWELVEDATA_API_KEY`、`ADMIN_TOKEN` 和 KV。不设则按下面各平台的说明直连 Twelve Data、布局存平台 KV。
 
-相同配置也让本地、Vercel 与 EdgeOne 的 `/api/market` 转发到 VPS，复用 VPS 的美股指标内存缓存：价格与估值六小时，CNN 三十分钟。该缓存与 Twelve Data 的 Redis 快照独立，服务重启后清空。未配置 VPS 时才由各平台直接读取指标来源，详见[美股指标](docs/market-indicators.md)。
+相同配置也让 `/api/readings` 转发到 VPS,读数快照由 VPS 每 30 分钟算一次(ADR-0005)。美股指标各来源的上次成功值存在 VPS 的 Redis(`market:*`),重启后不必重新抓取。未配置 VPS 时由各平台进程自己计算,详见[美股指标](docs/market-indicators.md)。
 
 ### 腾讯 EdgeOne Pages
 

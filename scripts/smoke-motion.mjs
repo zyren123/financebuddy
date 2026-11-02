@@ -2,6 +2,7 @@
 // Run against npm run dev; no layout is published and no market credits are consumed.
 import puppeteer from 'puppeteer-core'
 import { readFile, mkdir, writeFile } from 'node:fs/promises'
+import { readingsSnapshot } from './fixtures/readings.mjs'
 
 const url = process.env.SMOKE_URL ?? 'http://127.0.0.1:5173'
 const out = process.env.MOTION_OUT ?? '/tmp/financebuddy-motion'
@@ -38,8 +39,8 @@ async function open({ mobile = false, reduced = false, admin = false } = {}) {
       void request.respond({ status: 200, contentType: 'application/json', body: JSON.stringify({ meta: {}, status: 'ok', values }) })
     } else if (u.pathname === '/api/layout') {
       void request.respond({ status: request.method() === 'GET' ? 200 : 405, contentType: 'application/json', body: layout })
-    } else if (u.pathname === '/api/market') {
-      void request.respond({ status: 503, contentType: 'application/json', body: '{}' })
+    } else if (u.pathname === '/api/readings') {
+      void request.respond({ status: 200, contentType: 'application/json', body: JSON.stringify(readingsSnapshot()) })
     } else void request.continue()
   })
   await page.goto(url, { waitUntil: 'networkidle0' })

@@ -1,27 +1,28 @@
-import { useQueries, useQuery } from '@tanstack/react-query'
-import { ensureBars } from './barsStore'
+import { queryOptions, useQueries, useQuery, useQueryClient } from '@tanstack/react-query'
+import type { QueryClient } from '@tanstack/react-query'
+import { barDateOf } from '../readings/query'
+import { ensureBars, RESYNC_AFTER_MS } from './barsStore'
 import { PRICE_ADJUSTMENT } from './types'
-import type { Interval } from './types'
+import type { Bar, Interval } from './types'
 
-/**
- * 卡片取 K 线的唯一入口:同 symbol+interval 的多张卡自动去重;
- * staleTime 与 barsStore 的 6h 完整快照刷新窗口对齐。
- */
-export function useBars(symbol: string, interval: Interval = '1day') {
-  return useQuery({
-    queryKey: ['bars', PRICE_ADJUSTMENT, symbol, interval],
-    queryFn: () => ensureBars(symbol, interval),
-    staleTime: 6 * 60 * 60 * 1000,
+export function barsQuery(client: QueryClient, symbol: string, interval: Interval = '1day') {
+  return queryOptions({
+    queryKey: ['bars', PRICE_ADJUSTMENT, symbol, interval] as const,
+    queryFn: () => ensureBars(symbol, interval, interval === '1day' ? barDateOf(client, symbol) : null),
+    staleTime: RESYNC_AFTER_MS,
   })
+}
+
+export function isBehind(bars: Bar[] | undefined, notBefore: string | null): boolean {
+  return !!bars && notBefore !== null && (bars.at(-1)?.datetime ?? '') < notBefore
+}
+
+export function useBars(symbol: string, interval: Interval = '1day') {
+  return useQuery(barsQuery(useQueryClient(), symbol, interval))
 }
 
 /** 动态 symbol 列表(Ratio ROC 卡的分子分母集合) */
 export function useBarsMany(symbols: string[], interval: Interval = '1day') {
-  return useQueries({
-    queries: symbols.map((symbol) => ({
-      queryKey: ['bars', PRICE_ADJUSTMENT, symbol, interval],
-      queryFn: () => ensureBars(symbol, interval),
-      staleTime: 6 * 60 * 60 * 1000,
-    })),
-  })
+  const client = useQueryClient()
+  return useQueries({ queries: symbols.map((symbol) => barsQuery(client, symbol, interval)) })
 }

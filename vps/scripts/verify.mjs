@@ -30,6 +30,7 @@ check(
   '备用前端经 nginx 读布局',
   ['200', '404'].includes(ssh('curl -s -o /dev/null -w %{http_code} 127.0.0.1:8788/api/layout')),
 )
+check('备用前端经 nginx 读读数快照', ssh('curl -s -o /dev/null -w %{http_code} 127.0.0.1:8788/api/readings') === '200')
 
 const token = ssh('grep ^TD_CACHE_TOKEN= ~/financebuddy/vps/.env | cut -d= -f2-')
 const get = (path, headers = {}) => fetch(`${API}${path}`, { headers, signal: AbortSignal.timeout(20_000) })
@@ -47,9 +48,15 @@ const tdBody = td.status === 200 ? await td.json() : null
 check('公网带口令取行情', td.status === 200 && tdBody?.values?.length > 0, `HTTP ${td.status}, bars ${tdBody?.values?.length ?? 0}`)
 const layout = await get('/api/layout', { 'x-td-cache-token': token })
 check('公网带口令读布局', [200, 404].includes(layout.status), `HTTP ${layout.status}`)
-const market = await get('/api/market?feed=valuations', { 'x-td-cache-token': token })
-const marketBody = market.status === 200 ? await market.json() : null
-check('公网带口令读取美股估值', market.status === 200 && marketBody?.feed === 'valuations' && ['sp500', 'nasdaq100'].every((index) => marketBody.indices?.some((row) => row.index === index && row.pe > 0)), `HTTP ${market.status}`)
+const readings = await get('/api/readings', { 'x-td-cache-token': token })
+const snapshot = readings.status === 200 ? await readings.json() : null
+const fresh = snapshot && Date.now() - snapshot.computedAt < 35 * 60_000
+check('公网带口令读读数快照', fresh && Array.isArray(snapshot.ratios) && snapshot.market?.vix !== undefined, `HTTP ${readings.status}, computedAt ${snapshot?.computedAt ?? '-'}`)
+if (snapshot) {
+  const ratiosReady = snapshot.ratios.length > 0 && snapshot.ratios.every((r) => r.roc.status === 'ready')
+  check('封面 Ratio 读数齐全', ratiosReady, snapshot.ratios.map((r) => `${r.pair.numerator}/${r.pair.denominator}=${r.roc.status}`).join(' '))
+  check('读数快照允许边缘缓存', /s-maxage=\d+/.test(readings.headers.get('cache-control') ?? ''), readings.headers.get('cache-control') ?? '')
+}
 
 const failed = results.filter((ok) => !ok).length
 console.log(`\n${results.length - failed}/${results.length} 项通过`)
