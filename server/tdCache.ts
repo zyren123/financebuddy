@@ -4,7 +4,7 @@
  * 只用 Web 标准 API;存储经 SnapshotStore 注入(VPS 用 Redis,测试与本地用内存)。
  */
 import { barsFromTimeSeries } from '../src/data/timeSeries.js'
-import type { Bar } from '../src/data/types.js'
+import { PRICE_ADJUSTMENT, type Bar } from '../src/data/types.js'
 import type { CreditLimiter } from './credits.js'
 
 export type Interval = '1day'
@@ -249,7 +249,7 @@ export function createTdCache({ store, apiKey, credits, now = Date.now }: TdCach
   }
 
   async function bars(symbol: string): Promise<Bar[] | null> {
-    const q: SeriesQuery = { symbol: symbol.toUpperCase(), interval: '1day', adjust: 'all', outputsize: null, startDate: null, endDate: null }
+    const q: SeriesQuery = { symbol: symbol.toUpperCase(), interval: '1day', adjust: PRICE_ADJUSTMENT, outputsize: null, startDate: null, endDate: null }
     const key = keyOf(q)
     const cached = await store.get(key)
     let snapshot: Snapshot | null = cached

@@ -2,10 +2,12 @@ import { createHash, timingSafeEqual } from 'node:crypto'
 import { createServer, type IncomingMessage } from 'node:http'
 import { createClient } from 'redis'
 import { createCreditLimiter } from '../../server/credits.js'
-import { handleLayoutRequest, type LayoutStore } from '../../server/layoutApi.js'
+import { PUBLISHED_KEY, handleLayoutRequest } from '../../server/layoutApi.js'
+import { createMarketSource, createMemoryTextStore, handleMarketRequest, type TextStore } from '../../server/marketData.js'
+import { createReadingsService } from '../../server/readings.js'
+import { handleReadingsRequest } from '../../server/readingsApi.js'
 import { createMemorySnapshotStore, createTdCache, type Snapshot, type SnapshotStore } from '../../server/tdCache.js'
 import { VPS_TOKEN_HEADER } from '../../server/vpsRelay.js'
-import { handleMarketRequest } from '../../server/marketData.js'
 
 const { TWELVEDATA_API_KEY, TD_CACHE_TOKEN, ADMIN_TOKEN, REDIS_URL } = process.env
 const PORT = Number(process.env.PORT ?? 8787)
@@ -17,7 +19,8 @@ if (!TWELVEDATA_API_KEY || !TD_CACHE_TOKEN) {
 
 interface Stores {
   snapshots: SnapshotStore
-  layouts: LayoutStore
+  /** 布局与 market:* 共用 */
+  text: TextStore
 }
 
 async function redisStores(url: string): Promise<Stores> {
@@ -34,7 +37,7 @@ async function redisStores(url: string): Promise<Stores> {
         await client.set(key, JSON.stringify(snapshot))
       },
     },
-    layouts: {
+    text: {
       get: (key) => client.get(key),
       async put(key, value) {
         await client.set(key, value)
@@ -44,11 +47,7 @@ async function redisStores(url: string): Promise<Stores> {
 }
 
 function memoryStores(): Stores {
-  const map = new Map<string, string>()
-  return {
-    snapshots: createMemorySnapshotStore(),
-    layouts: { get: async (key) => map.get(key) ?? null, put: async (key, value) => void map.set(key, value) },
-  }
+  return { snapshots: createMemorySnapshotStore(), text: createMemoryTextStore() }
 }
 
 const digest = (s: string) => createHash('sha256').update(s).digest()
@@ -75,13 +74,20 @@ function readBody(req: IncomingMessage): Promise<string | null> {
 
 const stores = REDIS_URL ? await redisStores(REDIS_URL) : memoryStores()
 const td = createTdCache({ store: stores.snapshots, apiKey: TWELVEDATA_API_KEY, credits: createCreditLimiter() })
+const readings = createReadingsService({
+  bars: td.bars,
+  market: createMarketSource({ store: stores.text }).load,
+  publishedLayout: () => stores.text.get(PUBLISHED_KEY),
+})
+readings.start()
 
 async function route(req: IncomingMessage, url: URL): Promise<{ status: number; body: string; headers?: Record<string, string>; log?: object }> {
   if (url.pathname === '/healthz') return { status: 200, body: '{"ok":true}' }
   const isTd = url.pathname === '/api/td'
   const isLayout = url.pathname === '/api/layout'
   const isMarket = url.pathname === '/api/market'
-  if (!isTd && !isLayout && !isMarket) return { status: 404, body: '{"error":"not found"}' }
+  const isReadings = url.pathname === '/api/readings'
+  if (!isTd && !isLayout && !isMarket && !isReadings) return { status: 404, body: '{"error":"not found"}' }
   if (!authorized(req.headers[VPS_TOKEN_HEADER])) return { status: 401, body: '{"error":"unauthorized"}' }
 
   if (isMarket) {
@@ -89,6 +95,16 @@ async function route(req: IncomingMessage, url: URL): Promise<{ status: number; 
     const headers: Record<string, string> = {}
     result.headers.forEach((value, name) => { headers[name] = value })
     return { status: result.status, body: await result.text(), headers, log: { market: url.searchParams.get('feed') } }
+  }
+
+  if (isReadings) {
+    const result = await handleReadingsRequest(new Request(url, { method: req.method ?? 'GET' }), readings)
+    return {
+      status: result.status,
+      body: await result.text(),
+      headers: { 'cache-control': result.headers.get('cache-control') ?? 'no-store' },
+      log: { readings: req.method },
+    }
   }
 
   if (isTd) {
@@ -108,9 +124,11 @@ async function route(req: IncomingMessage, url: URL): Promise<{ status: number; 
   }
   const r = await handleLayoutRequest(
     { method, url, body, adminToken: typeof adminHeader === 'string' ? adminHeader : null },
-    stores.layouts,
+    stores.text,
     ADMIN_TOKEN || undefined,
   )
+  // 发布或恢复后按新口径重算;POST verify 也会触发,输入都命中存储,只是多算一次
+  if (r.status === 200 && (method === 'PUT' || method === 'POST')) void readings.refresh().catch((err: unknown) => console.error('readings refresh failed', err))
   return { ...r, log: { layout: method } }
 }
 
