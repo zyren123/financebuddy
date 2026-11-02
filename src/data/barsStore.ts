@@ -17,13 +17,15 @@ const keyOf = (symbol: string, interval: Interval) => `bars:${PRICE_ADJUSTMENT}:
 
 /**
  * 取某 symbol+interval 的完整 K 线(本地 IndexedDB 优先):
- * 无缓存或超 6h → 全量替换,避免公司行动后新旧复权因子混用。
+ * 无缓存、超 6h、或最后一根早于 notBefore(服务端读数快照的日期)→ 全量替换,
+ * 避免公司行动后新旧复权因子混用,也让图表与封面读数同一天。
  */
-export async function ensureBars(symbol: string, interval: Interval): Promise<Bar[]> {
+export async function ensureBars(symbol: string, interval: Interval, notBefore: string | null = null): Promise<Bar[]> {
   const key = keyOf(symbol, interval)
   const cached = await get<CachedBars>(key)
 
-  if (cached && Date.now() - cached.syncedAt < RESYNC_AFTER_MS) {
+  const behind = notBefore !== null && (cached?.bars.at(-1)?.datetime ?? '') < notBefore
+  if (cached && Date.now() - cached.syncedAt < RESYNC_AFTER_MS && !behind) {
     return cached.bars
   }
 

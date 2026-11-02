@@ -2,7 +2,9 @@
 // 前置:npm run dev 已在 http://localhost:5173 运行,且是刚启动的(dev 布局存在内存里,上一轮发布会残留);
 // 可选 env ADMIN_TOKEN 覆盖 dev 缺省口令。
 // /api/td 一律拦截返回合成日线:每个全新浏览器都会全量拉取,不拦截一次运行就烧掉一批 credit。
+// /api/readings 拦截返回合成快照,日期与合成日线最新一根一致。
 import puppeteer from 'puppeteer-core'
+import { readingsSnapshot } from './fixtures/readings.mjs'
 
 const CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
 const URL = process.env.SMOKE_URL ?? 'http://localhost:5173'
@@ -30,6 +32,7 @@ const SYNTHETIC_BARS = Array.from({ length: 900 }, (_, i) => {
   return { datetime, open: String(c), high: String(c + 1), low: String(c - 1), close: String(c), volume: '1000' }
 })
 const SYNTHETIC_BODY = JSON.stringify({ meta: {}, values: SYNTHETIC_BARS, status: 'ok' })
+const READINGS_BODY = JSON.stringify(readingsSnapshot({ date: SYNTHETIC_BARS[0].datetime }))
 
 const MIN_CARD_WIDTH_PX = 300
 const cardWidths = (page) =>
@@ -41,8 +44,11 @@ const openPage = async () => {
   await page.setViewport({ width: 1600, height: 1000 })
   await page.setRequestInterception(true)
   page.on('request', (req) => {
-    if (new globalThis.URL(req.url()).pathname === '/api/td') {
+    const pathname = new globalThis.URL(req.url()).pathname
+    if (pathname === '/api/td') {
       req.respond({ status: 200, contentType: 'application/json', body: SYNTHETIC_BODY })
+    } else if (pathname === '/api/readings') {
+      req.respond({ status: 200, contentType: 'application/json', body: READINGS_BODY })
     } else {
       req.continue()
     }

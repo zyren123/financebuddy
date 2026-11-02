@@ -2,7 +2,7 @@ import { useState } from 'react'
 import type { RefObject } from 'react'
 import { CHART_COLORS } from '../charts/theme'
 import { describeDataError } from '../data/errors'
-import type { RatioReadings } from '../data/useRatioReadings'
+import type { CoverReadings } from '../readings/useCoverReadings'
 import { CountUp, formatSigned } from '../ui/CountUp'
 import { ArrowDownIcon } from '../ui/icons'
 import { headlineOf, leadOf, sharedDenominator } from './copy'
@@ -10,7 +10,7 @@ import { Detector, trackDelay } from './Detector'
 import { ringScale } from './geometry'
 
 interface Props {
-  data: RatioReadings
+  data: CoverReadings
   period: number
   /** 滚动转场的两端:封面的大探测器 → 页头徽记(由 useCoverMorph 驱动) */
   detectorRef: RefObject<HTMLDivElement | null>
@@ -20,7 +20,7 @@ interface Props {
 }
 
 export function Cover({ data, period, detectorRef, detectorSlotRef, textRefs, onEnter }: Props) {
-  const { readings, loaded, total, error, date } = data
+  const { readings, progress, error, date } = data
   const [active, setActive] = useState<number | null>(null)
   const fired = readings.length > 0
   const headline = headlineOf(readings)
@@ -49,7 +49,9 @@ export function Cover({ data, period, detectorRef, detectorSlotRef, textRefs, on
           {lead ??
             (error
               ? describeDataError(error)
-              : `已读取 ${loaded}/${total} 个 Ticker。免费配额每分钟 8 次，多 Ticker 将分批加载。`)}
+              : progress
+                ? `已读取 ${progress.loaded}/${progress.total} 个 Ticker。免费配额每分钟 8 次，多 Ticker 将分批加载。`
+                : '正在读取最新读数。')}
         </p>
       </div>
 
@@ -99,7 +101,7 @@ export function Cover({ data, period, detectorRef, detectorSlotRef, textRefs, on
             <Detector readings={readings} fired={fired} active={active} onActive={setActive} period={period} className="h-full w-full" />
             {!fired && (
               <div className="detector-details num absolute inset-0 flex items-center justify-center text-[12px] text-ink-muted">
-                {error ? '暂无读数' : `${loaded}/${total}`}
+                {error ? '暂无读数' : progress ? `${progress.loaded}/${progress.total}` : ''}
               </div>
             )}
           </div>

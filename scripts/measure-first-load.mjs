@@ -1,11 +1,14 @@
 // 全新浏览器 profile 首次打开的耗时:每个 /api 请求、封面数字、图表、美股指标数字各自何时出现。
 // 前置:npm run dev 已在运行(或 MEASURE_URL 指向线上)。不拦截 /api,量的是真实转发链路。
 // 每轮新建 headless Chrome(新 profile,IndexedDB 为空);RUNS 控制轮数。
+// 另报两项:/api/readings 的网络请求数(1 = preload 被复用),以及封面或美股指标面板是否出现过"正在读取"。
 import puppeteer from 'puppeteer-core'
 
 const CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
 const URL = process.env.MEASURE_URL ?? 'http://localhost:5173'
 const RUNS = Number(process.env.RUNS ?? 3)
+// 给每个请求加固定延迟:dev 的模块图是几十个串行请求,加延迟后 JS 晚于读数到达,接近线上的先后顺序
+const LATENCY_MS = Number(process.env.LATENCY_MS ?? 0)
 
 const MARKS = () => {
   const marks = {}
@@ -17,10 +20,13 @@ const MARKS = () => {
       return !!panel && panel.querySelector('table') !== null && !panel.innerText.includes('正在读取')
     },
   }
+  const loadingShown = () =>
+    ['section[aria-labelledby="cover-title"]', '#dashboard-panel-market'].some((sel) => document.querySelector(sel)?.textContent.includes('正在读取'))
   const tick = () => {
     for (const [name, ok] of Object.entries(conditions)) {
       if (marks[name] === undefined && ok()) marks[name] = Math.round(performance.now())
     }
+    if (marks.loadingSeen === undefined && loadingShown()) marks.loadingSeen = Math.round(performance.now())
   }
   new MutationObserver(tick).observe(document, { subtree: true, childList: true, characterData: true })
   window.__marks = marks
@@ -34,6 +40,11 @@ for (let i = 0; i < RUNS; i++) {
   const page = await browser.newPage()
   await page.setViewport({ width: 1440, height: 900 })
   await page.evaluateOnNewDocument(MARKS)
+  if (LATENCY_MS > 0) await page.emulateNetworkConditions({ download: -1, upload: -1, latency: LATENCY_MS })
+  const readingsRequests = []
+  page.on('request', (req) => {
+    if (new globalThis.URL(req.url()).pathname === '/api/readings') readingsRequests.push(req.resourceType())
+  })
   await page.goto(URL, { waitUntil: 'domcontentloaded' })
   await page.waitForFunction(() => window.__marks.coverNumbers !== undefined, { timeout: 120_000 })
   const clickAt = await page.evaluate(() => {
@@ -61,7 +72,7 @@ for (let i = 0; i < RUNS; i++) {
     for (const num of [vtv, schd, cgdv]) ratioRoc(num, qqq, 35)
     return Math.round((performance.now() - t0) * 100) / 100
   }).catch(() => 'n/a (needs dev server sources)')
-  runs.push({ ...result, clickAt, rocMs: roc })
+  runs.push({ ...result, clickAt, rocMs: roc, readingsRequests })
   await browser.close()
 }
 
@@ -71,8 +82,12 @@ for (const [i, r] of runs.entries()) {
   console.log(`  cover numbers at ${r.marks.coverNumbers}ms, first chart at ${r.marks.firstChart}ms`)
   console.log(`  market tab clicked at ${r.clickAt}ms, numbers at ${r.marks.marketNumbers}ms (wait ${r.marks.marketNumbers - r.clickAt}ms)`)
   console.log(`  ratioRoc x3 on full history: ${r.rocMs}ms`)
+  console.log(`  /api/readings network requests: ${r.readingsRequests.length} (${r.readingsRequests.join(', ')})`)
+  console.log(`  "正在读取" in cover/market: ${r.marks.loadingSeen === undefined ? 'never' : `at ${r.marks.loadingSeen}ms`}`)
 }
 const cover = runs.map((r) => r.marks.coverNumbers)
 const market = runs.map((r) => r.marks.marketNumbers - r.clickAt)
 console.log(`\ncover numbers median=${percentile(cover, 0.5)}ms max=${Math.max(...cover)}ms`)
+console.log(`readings requests per page: ${runs.map((r) => r.readingsRequests.length).join(', ')}`)
+console.log(`"正在读取" appeared in ${runs.filter((r) => r.marks.loadingSeen !== undefined).length}/${runs.length} runs`)
 console.log(`market wait after click median=${percentile(market, 0.5)}ms max=${Math.max(...market)}ms`)

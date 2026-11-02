@@ -1,4 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
+import { readingsQuery } from '../readings/query'
 import type { Layout } from 'react-grid-layout'
 import {
   clearDraft,
@@ -30,6 +32,7 @@ export function useDashboard(adminToken: string | null) {
   const [editing, setEditing] = useState(false)
   const [dirty, setDirty] = useState(false)
   const [publishing, setPublishing] = useState(false)
+  const queryClient = useQueryClient()
 
   useEffect(() => {
     let cancelled = false
@@ -77,6 +80,8 @@ export function useDashboard(adminToken: string | null) {
     setPublishing(true)
     try {
       await publishLayout(draft, adminToken)
+      // 服务端重算要几秒;期间快照口径不符,封面走本地计算
+      void queryClient.invalidateQueries({ queryKey: readingsQuery.queryKey })
       setPublished(draft)
       setDraft(null)
       clearDraft()
@@ -85,13 +90,14 @@ export function useDashboard(adminToken: string | null) {
     } finally {
       setPublishing(false)
     }
-  }, [draft, adminToken, publishing])
+  }, [draft, adminToken, publishing, queryClient])
 
   const restorePrevious = useCallback(async () => {
     if (!adminToken) return
     // 服务端在恢复响应里直接带回恢复后的布局(EdgeOne KV 最终一致性下立即回读可能拿到旧值)
     const restored = await restorePreviousLayout(adminToken)
     if (restored) {
+      void queryClient.invalidateQueries({ queryKey: readingsQuery.queryKey })
       setPublished(restored)
       setLoadFailed(false)
     }
@@ -99,7 +105,7 @@ export function useDashboard(adminToken: string | null) {
     clearDraft()
     setDirty(false)
     setEditing(false)
-  }, [adminToken])
+  }, [adminToken, queryClient])
 
   // ---- 以下 mutation 只作用于 Draft(仅 Admin 编辑期间可触达)----
 

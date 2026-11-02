@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { headlineOf, leadOf } from './copy'
-import type { RatioReading } from '../data/useRatioReadings'
+import type { RatioReading } from '../readings/useCoverReadings'
 
 const r = (label: string, value: number): RatioReading => ({ label, value, previous: null, date: '2026-10-08' })
 

@@ -30,7 +30,7 @@ async function open({ mobile = false, reduced = false } = {}) {
     const u = new URL(request.url())
     if (u.pathname === '/api/td') void request.respond({ status: 503, contentType: 'application/json', body: '{"status":"error"}' })
     else if (u.pathname === '/api/layout') void request.respond({ status: 200, contentType: 'application/json', body: layout })
-    else if (u.pathname === '/api/market') void request.respond({ status: 503, contentType: 'application/json', body: '{}' })
+    else if (u.pathname === '/api/readings') void request.respond({ status: 503, contentType: 'application/json', body: '{}' })
     else void request.continue()
   })
   await page.goto(url, { waitUntil: 'networkidle0' })

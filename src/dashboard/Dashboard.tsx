@@ -2,7 +2,7 @@ import { Suspense, lazy, useCallback, useEffect, useLayoutEffect, useRef, useSta
 import type { RefObject } from 'react'
 import type { RangeKey } from '../charts/convert'
 import { CHART_COLORS } from '../charts/theme'
-import type { RatioReadings } from '../data/useRatioReadings'
+import type { CoverReadings } from '../readings/useCoverReadings'
 import { MarketOverview } from '../market/MarketOverview'
 import { formatSigned } from '../ui/CountUp'
 import { ArrowUpRightIcon, CheckIcon, PencilIcon, PlusIcon } from '../ui/icons'
@@ -29,7 +29,7 @@ const inputCls =
 interface Props {
   admin: ReturnType<typeof useAdmin>
   dashboard: ReturnType<typeof useDashboard>
-  readings: RatioReadings
+  readings: CoverReadings
   headerRef: RefObject<HTMLElement | null>
   emblemRef: RefObject<HTMLDivElement | null>
 }
@@ -66,7 +66,6 @@ export function Dashboard({ admin, dashboard, readings, headerRef, emblemRef }: 
   const canEdit = isAdmin && !narrow
 
   const [view, setView] = useState<View>('charts')
-  const [marketOpened, setMarketOpened] = useState(false)
   const [researchOpened, setResearchOpened] = useState(false)
   const chartsRef = useRef<HTMLElement>(null)
   const tabRefs = useRef<Record<View, HTMLButtonElement | null>>({ charts: null, market: null, research: null })
@@ -82,7 +81,6 @@ export function Dashboard({ admin, dashboard, readings, headerRef, emblemRef }: 
     if (next === view || editing) return
     scrollOffsets.current[view] = Math.max(0, window.scrollY - (chartsRef.current?.offsetTop ?? 0))
     restoringView.current = true
-    if (next === 'market') setMarketOpened(true)
     if (next === 'research') setResearchOpened(true)
     setView(next)
   }, [view, editing])
@@ -423,7 +421,7 @@ export function Dashboard({ admin, dashboard, readings, headerRef, emblemRef }: 
           </footer>
         </div>
         <div id="dashboard-panel-market" role="tabpanel" aria-labelledby="dashboard-tab-market" hidden={view !== 'market'} tabIndex={0}>
-          {marketOpened && <MarketOverview active={view === 'market'} />}
+          <MarketOverview />
         </div>
         {isAdmin && (
           <div id="dashboard-panel-research" role="tabpanel" aria-labelledby="dashboard-tab-research" hidden={view !== 'research'} tabIndex={0}>

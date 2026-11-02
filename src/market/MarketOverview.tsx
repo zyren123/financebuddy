@@ -1,6 +1,6 @@
 import { MARKET_SOURCES } from './model'
-import { useMarketData } from './useMarketData'
-import type { Reading } from './useMarketData'
+import { useMarketReadings } from './useMarketReadings'
+import type { Reading } from './useMarketReadings'
 
 function Readout({ reading, unit, digits = 1, large = false }: { reading: Reading; unit?: string; digits?: number; large?: boolean }) {
   if (reading.kind !== 'ready') {
@@ -19,8 +19,8 @@ function Readout({ reading, unit, digits = 1, large = false }: { reading: Readin
   </div>
 }
 
-export function MarketOverview({ active }: { active: boolean }) {
-  const data = useMarketData(active)
+export function MarketOverview() {
+  const data = useMarketReadings()
   const rows = [
     { title: 'RSI', detail: '6 日 · Wilder 平滑', key: 'rsi', digits: 1 },
     { title: '距 52 周高点', detail: '当前回撤', key: 'drawdown', digits: 1, unit: '%' },
