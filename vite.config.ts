@@ -7,7 +7,6 @@ import { PUBLISHED_KEY, handleLayoutRequest } from './server/layoutApi'
 import { createDevLayoutStore } from './server/devLayoutStore'
 import { readBody } from './server/readBody'
 import { relayLayoutRequest, relayToVps, vpsRelayFromEnv, type VpsRelay } from './server/vpsRelay'
-import { proxyMarketRequest } from './server/marketProxy'
 import { createMemorySnapshotStore, createTdCache } from './server/tdCache'
 import { createCreditLimiter } from './server/credits'
 import { createMarketSource, createMemoryTextStore } from './server/marketData'
@@ -63,24 +62,6 @@ export default defineConfig(({ mode }) => {
     plugins: [
       react(),
       tailwindcss(),
-      {
-        name: 'market-dev-api',
-        apply: 'serve',
-        configureServer(server) {
-          server.middlewares.use((req, res, next) => {
-            if (req.url?.split('?')[0] !== '/api/market') {
-              next()
-              return
-            }
-            void (async () => {
-              const result = await proxyMarketRequest(new Request(new URL(req.url, 'http://localhost'), { method: req.method ?? 'GET' }), relay)
-              res.statusCode = result.status
-              result.headers.forEach((value, key) => res.setHeader(key, value))
-              res.end(await result.text())
-            })()
-          })
-        },
-      },
       {
         name: 'readings-dev-api',
         apply: 'serve',

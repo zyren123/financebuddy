@@ -54,3 +54,7 @@ _Avoid_: 默认布局、与 Published Layout 混用
 **Browse State**:
 访客会话内的临时视图偏好(如卡片的时间区间),刷新即回,不属于布局、不可发布。
 _Avoid_: 个性化布局
+
+**读数快照**:
+服务端按 Published Layout(未发布则按 Factory Layout)算好的一份数字集合:封面的 Ratio ROC 读数与美股指标的全部读数,每项各自带状态与数据日期;经 `GET /api/readings` 提供(ADR-0005)。图表不用它,图表仍在浏览器从完整 K 线计算。
+_Avoid_: 缓存(含糊)、与 IndexedDB 的 K 线快照混用

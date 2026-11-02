@@ -25,7 +25,6 @@ try {
     const json = (body, status = 200) => request.respond({ status, contentType: 'application/json', body: JSON.stringify(body) })
     if (url.pathname === '/api/layout') { request.respond({ status: 200, contentType: 'application/json', body: layout }); return }
     if (url.pathname === '/api/td') { json({ status: 'ok', meta: {}, values: bars }); return }
-    if (url.pathname === '/api/market') { calls.push('market'); request.continue(); return }
     if (url.pathname !== '/api/readings') { request.continue(); return }
     calls.push('readings')
     json(readingsSnapshot(allowFear ? {} : { market: { fearGreed: SOURCE_DOWN } }))

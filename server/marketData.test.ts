@@ -1,5 +1,5 @@
-import { describe, expect, it, vi } from 'vitest'
-import { createMarketApi, parseFearGreed, parseValuations, parseYahooPrices } from './marketData'
+import { describe, expect, it } from 'vitest'
+import { parseFearGreed, parseValuations, parseYahooPrices } from './marketData'
 import { parseMarketData } from '../src/market/schema'
 
 const sessionStart = Date.parse('2026-10-15T13:30:00Z') / 1000
@@ -50,50 +50,5 @@ describe('公开市场数据边界', () => {
     ] })).toThrow()
     expect(() => parseMarketData('sp500', { feed: 'sp500', bars: [{ date: '2026-02-30', close: 100, high: 101 }] })).toThrow()
     expect(() => parseMarketData('sp500', '<html>blocked</html>')).toThrow()
-  })
-})
-
-describe('GET /api/market', () => {
-  it('仅允许固定来源，不允许开放代理、重复参数或写请求', async () => {
-    const fetcher = vi.fn<typeof fetch>()
-    const handle = createMarketApi(fetcher)
-    for (const query of ['feed=anything', 'feed=sp500&url=https://example.com', 'feed=sp500&feed=vix', '']) {
-      expect((await handle(new Request(`https://local/api/market?${query}`))).status).toBe(400)
-    }
-    expect((await handle(new Request('https://local/api/market?feed=sp500', { method: 'POST' }))).status).toBe(405)
-    expect(fetcher).not.toHaveBeenCalled()
-  })
-
-  it('相同来源的并发访客共用请求和六小时缓存', async () => {
-    const fetcher = vi.fn<typeof fetch>().mockImplementation(async () => Response.json(valuation))
-    let now = 1_000_000
-    const handle = createMarketApi(fetcher, () => now)
-    const request = () => new Request('https://local/api/market?feed=valuations')
-    const results = await Promise.all([handle(request()), handle(request())])
-    expect(results.every((result) => result.status === 200)).toBe(true)
-    expect(await results[0].json()).toEqual(parseValuations(valuation))
-    await handle(request())
-    expect(fetcher).toHaveBeenCalledTimes(1)
-    now += 6 * 60 * 60_000 + 1
-    await handle(request())
-    expect(fetcher).toHaveBeenCalledTimes(2)
-  })
-
-  it('CNN 失败不造值，来源恢复后用户立即重试即可读取，不命中缓存失败', async () => {
-    const fetcher = vi.fn<typeof fetch>()
-      .mockImplementationOnce(async () => new Response('blocked', { status: 418 }))
-      .mockImplementation(async () => Response.json({ fear_and_greed: { score: 42, timestamp: '2026-10-15T22:00:00Z' } }))
-    const handle = createMarketApi(fetcher, () => 1_000_000)
-    const request = () => new Request('https://local/api/market?feed=fear-greed')
-    const response = await handle(request())
-    expect(response.status).toBe(502)
-    expect(response.headers.get('cache-control')).toBe('no-store')
-    expect(await response.json()).toEqual({ error: '数据来源暂不可用，请稍后重试。' })
-    const recovered = await handle(request())
-    expect(recovered.status).toBe(200)
-    expect(await recovered.json()).toEqual({ feed: 'fear-greed', score: 42, date: '2026-10-15' })
-    expect(fetcher).toHaveBeenCalledTimes(2)
-    await handle(request())
-    expect(fetcher).toHaveBeenCalledTimes(2)
   })
 })

@@ -48,9 +48,6 @@ const tdBody = td.status === 200 ? await td.json() : null
 check('公网带口令取行情', td.status === 200 && tdBody?.values?.length > 0, `HTTP ${td.status}, bars ${tdBody?.values?.length ?? 0}`)
 const layout = await get('/api/layout', { 'x-td-cache-token': token })
 check('公网带口令读布局', [200, 404].includes(layout.status), `HTTP ${layout.status}`)
-const market = await get('/api/market?feed=valuations', { 'x-td-cache-token': token })
-const marketBody = market.status === 200 ? await market.json() : null
-check('公网带口令读取美股估值', market.status === 200 && marketBody?.feed === 'valuations' && ['sp500', 'nasdaq100'].every((index) => marketBody.indices?.some((row) => row.index === index && row.pe > 0)), `HTTP ${market.status}`)
 const readings = await get('/api/readings', { 'x-td-cache-token': token })
 const snapshot = readings.status === 200 ? await readings.json() : null
 // 后台每 30 分钟重算一次,留 5 分钟余量

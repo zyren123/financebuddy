@@ -3,7 +3,7 @@ import { createServer, type IncomingMessage } from 'node:http'
 import { createClient } from 'redis'
 import { createCreditLimiter } from '../../server/credits.js'
 import { PUBLISHED_KEY, handleLayoutRequest } from '../../server/layoutApi.js'
-import { createMarketSource, createMemoryTextStore, handleMarketRequest, type TextStore } from '../../server/marketData.js'
+import { createMarketSource, createMemoryTextStore, type TextStore } from '../../server/marketData.js'
 import { createReadingsService } from '../../server/readings.js'
 import { handleReadingsRequest } from '../../server/readingsApi.js'
 import { createMemorySnapshotStore, createTdCache, type Snapshot, type SnapshotStore } from '../../server/tdCache.js'
@@ -85,17 +85,9 @@ async function route(req: IncomingMessage, url: URL): Promise<{ status: number; 
   if (url.pathname === '/healthz') return { status: 200, body: '{"ok":true}' }
   const isTd = url.pathname === '/api/td'
   const isLayout = url.pathname === '/api/layout'
-  const isMarket = url.pathname === '/api/market'
   const isReadings = url.pathname === '/api/readings'
-  if (!isTd && !isLayout && !isMarket && !isReadings) return { status: 404, body: '{"error":"not found"}' }
+  if (!isTd && !isLayout && !isReadings) return { status: 404, body: '{"error":"not found"}' }
   if (!authorized(req.headers[VPS_TOKEN_HEADER])) return { status: 401, body: '{"error":"unauthorized"}' }
-
-  if (isMarket) {
-    const result = await handleMarketRequest(new Request(url, { method: req.method ?? 'GET' }))
-    const headers: Record<string, string> = {}
-    result.headers.forEach((value, name) => { headers[name] = value })
-    return { status: result.status, body: await result.text(), headers, log: { market: url.searchParams.get('feed') } }
-  }
 
   if (isReadings) {
     const result = await handleReadingsRequest(new Request(url, { method: req.method ?? 'GET' }), readings)
