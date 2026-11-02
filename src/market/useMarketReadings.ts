@@ -32,7 +32,6 @@ export function useMarketReadings() {
     vix: read(market?.vix),
     fearGreed: read(market?.fearGreed),
     fetching: query.isFetching,
-    // "数据不足"重试也没用,只为来源失败提供重试
     hasFailures: query.isError || items.some((item) => item.status === 'unavailable' && item.reason === 'source-down'),
     retryFailures: () => refetchReadingsFresh(client).catch(() => {}),
   }

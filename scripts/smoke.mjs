@@ -2,7 +2,6 @@
 // 前置:npm run dev 已在 http://localhost:5173 运行,且是刚启动的(dev 布局存在内存里,上一轮发布会残留);
 // 可选 env ADMIN_TOKEN 覆盖 dev 缺省口令。
 // /api/td 一律拦截返回合成日线:每个全新浏览器都会全量拉取,不拦截一次运行就烧掉一批 credit。
-// /api/readings 拦截返回合成快照,日期与合成日线最新一根一致。
 import puppeteer from 'puppeteer-core'
 import { readingsSnapshot } from './fixtures/readings.mjs'
 

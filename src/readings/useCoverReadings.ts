@@ -9,33 +9,21 @@ import { useReadingsSnapshot } from './query'
 
 export interface RatioReading {
   label: string
-  /** 最新收盘日的 Ratio ROC(%) */
   value: number
-  /** N 个交易日前的读数,画成幽灵径迹;序列不够长时为 null */
   previous: number | null
   date: string
 }
 
 export interface CoverReadings {
-  /** 只含 ready 的项;非空即 fired(探测器与 CountUp 从这一刻开始) */
   readings: RatioReading[]
-  /** 所有读数中最新的收盘日 */
   date: string | null
-  /** 一项都拿不到时才非空 */
   error: Error | null
-  /** 只在本地计算(草稿 / 快照口径不符 / 快照不可用)时存在;快照模式没有"x/y" */
   progress: { loaded: number; total: number } | null
-  /** 当前口径的 ROC 周期 */
   period: number
 }
 
 const NO_BASIS: ReadingsBasis = { pairs: [], rocPeriod: FALLBACK_BASIS.rocPeriod }
 
-/**
- * 口径:布局就绪用 basisOf(dashboard.state)(编辑中即草稿);布局未到信快照自己的口径。
- * 数字:快照口径一致且至少一项 ready → 快照;快照还在路上 → 不下载 K 线;
- * 其余 → 本地 useBarsMany + ratioItems,与服务端同一份计算。
- */
 export function useCoverReadings(dashboard: { state: DashboardState | null; ready: boolean }): CoverReadings {
   const snapshot = useReadingsSnapshot()
   const snap = snapshot.data
@@ -64,7 +52,6 @@ function useLocalRatioItems(basis: ReadingsBasis) {
     if (symbols.length === 0 || loaded < symbols.length) return []
     const bySymbol = new Map<string, Bar[]>(symbols.map((s, i) => [s, results[i]?.data ?? []]))
     return ratioItems(bySymbol, basis)
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- dataKey 即 results 的数据版本
   }, [dataKey, loaded, symbols, basis])
   return { items, error, progress: { loaded, total: symbols.length } }
 }

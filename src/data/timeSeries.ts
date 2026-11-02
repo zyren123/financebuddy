@@ -20,7 +20,7 @@ function parseBar(b: RawTimeSeriesBar): Bar {
   }
 }
 
-/** Twelve Data time_series 的 values(新→旧)→ 旧→新的 Bar[];浏览器与服务端同一口径 */
+/** Twelve Data time_series 的 values(新→旧)→ 旧→新的 Bar[] */
 export function barsFromTimeSeries(values: RawTimeSeriesBar[]): Bar[] {
   return values.map(parseBar).reverse()
 }

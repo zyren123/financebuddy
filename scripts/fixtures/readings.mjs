@@ -1,5 +1,3 @@
-// 冒烟脚本共用的合成 /api/readings 快照,形状同 src/readings/model.ts 的 ReadingsSnapshot。
-// 口径与 public/default-dashboard.json 一致,封面走快照路径;只在需要时覆盖个别项。
 const ready = (value, date) => ({ status: 'ready', value, date })
 export const SOURCE_DOWN = { status: 'unavailable', reason: 'source-down' }
 

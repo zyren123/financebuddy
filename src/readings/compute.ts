@@ -6,12 +6,10 @@ import type { IndexReadings, Item, MarketReadings, RatioItem, ReadingsBasis, Rea
 
 type PriceData = Extract<MarketData, { bars: unknown }>
 
-/** 每个 feed 对应它自己的 MarketData 变体;拉不到为 null */
 export type MarketInputs = {
   [F in MarketFeed]: (F extends PriceFeed ? PriceData : Extract<MarketData, { feed: F }>) | null
 }
 
-/** symbol → 旧→新 的完整日线;拉不到的 symbol 不在 map 里 */
 export type BarsBySymbol = ReadonlyMap<string, Bar[]>
 
 const SOURCE_DOWN: Item = { status: 'unavailable', reason: 'source-down' }

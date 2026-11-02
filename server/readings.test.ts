@@ -44,7 +44,6 @@ function routeOf(url: string): Route {
   return 'cnn'
 }
 
-/** 假上游:按 URL 路由;broken 里的 symbol / 来源返回错误 */
 function fakeUpstream(broken: Set<string> = new Set()) {
   const calls: string[] = []
   const fetcher = vi.fn(async (input: string | URL | Request) => {
@@ -270,6 +269,14 @@ describe('createMarketSource', () => {
     await source.load()
     expect(upstream.calls.slice(5)).toEqual(['cnn'])
     expect(JSON.parse((await store.get(marketKey('fear-greed')))!)).toMatchObject({ fetchedAt: clock.t, data: { feed: 'fear-greed', score: 42 } })
+  })
+
+  it('并发 load 合并成一次:每个来源只打一次上游', async () => {
+    const upstream = fakeUpstream()
+    const source = createMarketSource({ store: createMemoryTextStore(), fetcher: upstream.fetcher, now: () => NOW })
+    const [a, b] = await Promise.all([source.load(), source.load()])
+    expect(upstream.calls).toHaveLength(5)
+    expect(b).toBe(a)
   })
 
   it('存储里的值形状不对就当作没有,重新抓上游;都失败 → null', async () => {

@@ -42,7 +42,6 @@ function parseMarket(value: unknown): MarketReadings {
   }
 }
 
-/** 线上 JSON → ReadingsSnapshot 的唯一入口;解析失败就抛 */
 export function parseReadingsSnapshot(value: unknown): ReadingsSnapshot {
   const body = readObject(value)
   const rocPeriod = readNumber(body.rocPeriod)

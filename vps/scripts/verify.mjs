@@ -50,7 +50,6 @@ const layout = await get('/api/layout', { 'x-td-cache-token': token })
 check('公网带口令读布局', [200, 404].includes(layout.status), `HTTP ${layout.status}`)
 const readings = await get('/api/readings', { 'x-td-cache-token': token })
 const snapshot = readings.status === 200 ? await readings.json() : null
-// 后台每 30 分钟重算一次,留 5 分钟余量
 const fresh = snapshot && Date.now() - snapshot.computedAt < 35 * 60_000
 check('公网带口令读读数快照', fresh && Array.isArray(snapshot.ratios) && snapshot.market?.vix !== undefined, `HTTP ${readings.status}, computedAt ${snapshot?.computedAt ?? '-'}`)
 if (snapshot) {

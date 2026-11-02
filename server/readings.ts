@@ -1,33 +1,27 @@
-/**
- * 读数快照的唯一所有者:谁都只能经 read()/refresh() 触达它。
- * VPS 上 start() 起后台循环;平台(无 VPS)与开发不起循环,靠 read() 的过期重算。同一份代码。
- * 快照不持久化:它是持久化输入(td 快照与 market:*)的纯函数,重启后第一次 refresh 多半全命中存储。
- */
 import { validateDashboardState } from '../src/dashboard/schema.js'
 import type { Bar } from '../src/data/types.js'
 import { basisOf, symbolsOf } from '../src/readings/basis.js'
 import { buildSnapshot } from '../src/readings/compute.js'
 import type { MarketInputs } from '../src/readings/compute.js'
 import type { Item, ReadingsSnapshot } from '../src/readings/model.js'
+import { MARKET_TTL_MS } from './marketData.js'
 
 export interface ReadingsDeps {
   bars(symbol: string): Promise<Bar[] | null>
   market(): Promise<MarketInputs>
-  /** 已发布布局的原始 JSON;未发布或解析失败 → 出厂口径 */
   publishedLayout(): Promise<string | null>
   now?: () => number
 }
 
-/** 最快变化的来源是 CNN 恐贪(30 分钟 TTL),其余 6 小时 */
-export const READINGS_REFRESH_MS = 30 * 60_000
+export const READINGS_REFRESH_MS = Math.min(...Object.values(MARKET_TTL_MS))
 
 export interface ReadingsService {
   /**
    * 序列化好的快照 JSON。有快照立刻回;超过 READINGS_REFRESH_MS 同时在后台重算。
-   * 无快照则等这一次计算;从未算成功 → 抛(调用方回 503)。
+   * 无快照则等这一次计算;从未算成功 → 抛。
    */
   read(): Promise<string>
-  /** 保证返回前完成一次在调用之后开始的计算:进行中的那次可能读的是旧布局,所以排一次跟进 */
+  /** 保证返回前完成一次在调用之后开始的计算 */
   refresh(): Promise<void>
   /** 立即算一次,之后每 READINGS_REFRESH_MS 一次;返回停止函数 */
   start(): () => void

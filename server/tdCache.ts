@@ -52,7 +52,6 @@ const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
 const FULL_SIZE = 5000
 export const SNAPSHOT_TTL_MS = 6 * 60 * 60 * 1000
 export const FAILURE_COOLDOWN_MS = 5 * 60 * 1000
-/** 布局里一个坏 symbol 不能每轮都烧 credit */
 export const NOT_FOUND_COOLDOWN_MS = SNAPSHOT_TTL_MS
 const UPSTREAM_TIMEOUT_MS = 15_000
 
@@ -125,7 +124,6 @@ export interface TdCacheDeps {
 }
 
 export interface TdCache {
-  /** GET /api/td */
   handle(params: URLSearchParams): Promise<CacheResult>
   /** 该 symbol 的日线(与浏览器同一复权口径的快照),旧→新;刷新失败有旧快照用旧快照,都没有 → null */
   bars(symbol: string): Promise<Bar[] | null>
@@ -133,14 +131,12 @@ export interface TdCache {
 
 type Failure = { status: number; body: string }
 
-/** 上游说 symbol 不存在 / 无数据(code 400 或 404)冷却 6h,其余失败 5min */
+/** 上游 code 400 或 404 表示 symbol 不存在 / 无数据 */
 export function cooldownFor(result: Failure): number {
   let code: unknown = result.status
   try {
     code = (JSON.parse(result.body) as UpstreamSeries).code ?? result.status
-  } catch {
-    // 非 JSON 错误体按 HTTP 状态判断
-  }
+  } catch {}
   return code === 400 || code === 404 ? NOT_FOUND_COOLDOWN_MS : FAILURE_COOLDOWN_MS
 }
 

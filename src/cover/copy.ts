@@ -2,7 +2,6 @@ import type { RatioReading } from '../readings/useCoverReadings'
 
 export type Verdict = 'growth' | 'value' | 'mixed'
 
-/** 由读数机械生成的一句话结论,不含人工观点 */
 export function verdictOf(readings: RatioReading[]): Verdict | null {
   if (readings.length === 0) return null
   if (readings.every((r) => r.value < 0)) return 'growth'

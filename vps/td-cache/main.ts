@@ -19,7 +19,6 @@ if (!TWELVEDATA_API_KEY || !TD_CACHE_TOKEN) {
 
 interface Stores {
   snapshots: SnapshotStore
-  /** 布局与 market:* 共用 */
   text: TextStore
 }
 
@@ -119,7 +118,6 @@ async function route(req: IncomingMessage, url: URL): Promise<{ status: number; 
     stores.text,
     ADMIN_TOKEN || undefined,
   )
-  // 发布或恢复后按新口径重算;POST verify 也会触发,输入都命中存储,只是多算一次
   if (r.status === 200 && (method === 'PUT' || method === 'POST')) void readings.refresh().catch((err: unknown) => console.error('readings refresh failed', err))
   return { ...r, log: { layout: method } }
 }

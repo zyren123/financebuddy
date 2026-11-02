@@ -1,13 +1,11 @@
-// 全新浏览器 profile 首次打开的耗时:每个 /api 请求、封面数字、图表、美股指标数字各自何时出现。
-// 前置:npm run dev 已在运行(或 MEASURE_URL 指向线上)。不拦截 /api,量的是真实转发链路。
-// 每轮新建 headless Chrome(新 profile,IndexedDB 为空);RUNS 控制轮数。
-// 另报两项:/api/readings 的网络请求数(1 = preload 被复用),以及封面或美股指标面板是否出现过"正在读取"。
+// 全新浏览器 profile 首次打开的耗时。先 npm run dev,或用 MEASURE_URL 指向线上;RUNS 控制轮数。
+// 不拦截 /api,量的是真实转发链路。
 import puppeteer from 'puppeteer-core'
 
 const CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
 const URL = process.env.MEASURE_URL ?? 'http://localhost:5173'
 const RUNS = Number(process.env.RUNS ?? 3)
-// 给每个请求加固定延迟:dev 的模块图是几十个串行请求,加延迟后 JS 晚于读数到达,接近线上的先后顺序
+// dev 的模块图是几十个串行请求,给每个请求加延迟后 JS 晚于读数到达,接近线上的先后顺序
 const LATENCY_MS = Number(process.env.LATENCY_MS ?? 0)
 
 const MARKS = () => {

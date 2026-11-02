@@ -80,7 +80,6 @@ export function useDashboard(adminToken: string | null) {
     setPublishing(true)
     try {
       await publishLayout(draft, adminToken)
-      // 服务端重算要几秒;期间快照口径不符,封面走本地计算
       void queryClient.invalidateQueries({ queryKey: readingsQuery.queryKey })
       setPublished(draft)
       setDraft(null)

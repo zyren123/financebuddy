@@ -77,7 +77,6 @@ async function fetchFeed(feed: MarketFeed, fetcher: typeof fetch, now: number): 
   return feed === 'valuations' ? parseValuations(raw) : feed === 'fear-greed' ? parseFearGreed(raw) : parseYahooPrices(feed, raw, now)
 }
 
-/** 与 LayoutStore 同形的字符串 KV;VPS 用同一个 Redis(键 market:*),平台与开发用内存 */
 export type TextStore = LayoutStore
 
 export function createMemoryTextStore(): TextStore {
@@ -95,11 +94,6 @@ export const MARKET_TTL_MS: Record<MarketFeed, number> = {
 
 export const marketKey = (feed: MarketFeed) => `market:${feed}`
 
-/**
- * 五个 feed 各自维持"最近一次成功"的解析结果并持久化:TTL 内直接用存储;过期抓上游,成功写回,
- * 失败回存储里的旧值(带它自己的旧日期);连旧值都没有 → null。
- * 不做并发合并:唯一调用方 readings 服务的 refresh 本身是单飞的。
- */
 export function createMarketSource({ store, fetcher = fetch, now = Date.now }: {
   store: TextStore
   fetcher?: typeof fetch
@@ -110,7 +104,6 @@ export function createMarketSource({ store, fetcher = fetch, now = Date.now }: {
       const raw = await store.get(marketKey(feed))
       if (!raw) return null
       const body = readObject(JSON.parse(raw))
-      // 重新校验:存储形状跨版本漂移时当作没有
       return { data: parseMarketData(feed, body.data), fetchedAt: readNumber(body.fetchedAt) }
     } catch {
       return null
@@ -132,16 +125,25 @@ export function createMarketSource({ store, fetcher = fetch, now = Date.now }: {
     }
   }
 
+  let running: Promise<MarketInputs> | null = null
+
+  async function loadAll(): Promise<MarketInputs> {
+    const [sp500, nasdaq100, vix, valuations, fearGreed] = await Promise.all(MARKET_FEEDS.map(loadFeed))
+    return {
+      sp500: sp500 && 'bars' in sp500 ? sp500 : null,
+      nasdaq100: nasdaq100 && 'bars' in nasdaq100 ? nasdaq100 : null,
+      vix: vix && 'bars' in vix ? vix : null,
+      valuations: valuations?.feed === 'valuations' ? valuations : null,
+      'fear-greed': fearGreed?.feed === 'fear-greed' ? fearGreed : null,
+    }
+  }
+
   return {
-    async load() {
-      const [sp500, nasdaq100, vix, valuations, fearGreed] = await Promise.all(MARKET_FEEDS.map(loadFeed))
-      return {
-        sp500: sp500 && 'bars' in sp500 ? sp500 : null,
-        nasdaq100: nasdaq100 && 'bars' in nasdaq100 ? nasdaq100 : null,
-        vix: vix && 'bars' in vix ? vix : null,
-        valuations: valuations?.feed === 'valuations' ? valuations : null,
-        'fear-greed': fearGreed?.feed === 'fear-greed' ? fearGreed : null,
-      }
+    load() {
+      running ??= loadAll().finally(() => {
+        running = null
+      })
+      return running
     },
   }
 }

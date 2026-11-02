@@ -15,7 +15,6 @@ import { handleReadingsRequest, proxyReadingsRequest } from './server/readingsAp
 import { barsFromTimeSeries, type RawTimeSeriesBar } from './src/data/timeSeries'
 import { PRICE_ADJUSTMENT, type Bar } from './src/data/types'
 
-/** 无本机 key 时经 VPS 现有的 /api/td 取全量;VPS 快照 6h 内命中,不花 credit */
 function relayBars(relay: VpsRelay) {
   return async (symbol: string): Promise<Bar[] | null> => {
     const params = new URLSearchParams({ endpoint: 'time_series', symbol, interval: '1day', outputsize: '5000', adjust: PRICE_ADJUSTMENT })
@@ -29,7 +28,6 @@ function relayBars(relay: VpsRelay) {
 // 开发期有 API_KEY 时运行当前版本的共享行情缓存,避免依赖尚未部署的 VPS 版本。
 // 无本地 key 时仍经 tdProxy 转发;布局的 VPS 转发配置独立保持。
 // 开发期 /api/layout 配了 TD_CACHE_* 时转发到 VPS,否则用内存 KV 与出厂 JSON 播种。
-// /api/readings 同样转发 VPS;VPS 回 404(新接口未部署)或没配 VPS 时在本机算。
 // ADMIN_TOKEN 缺省 dev-admin-token(仅本机;生产必须配真实口令)。
 export default defineConfig(({ mode }) => {
   const env = loadEnv(mode, process.cwd(), '')

@@ -11,7 +11,6 @@ export function weekdays(from: string, to: string): string[] {
   return out
 }
 
-/** 确定性的合成日线,seed 不同走势不同;旧→新 */
 export function syntheticBars(seed: number, from = '2023-01-02', to = '2026-10-09'): Bar[] {
   return weekdays(from, to).map((datetime, i) => {
     const close = 100 + 12 * Math.sin(i / (11 + seed) + seed) + i * 0.015 * seed
